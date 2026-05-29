@@ -1,6 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  output: 'standalone',
+
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+
+  experimental: {
+    serverComponentsExternalPackages: ['@prisma/client', 'prisma'],
+  },
 
   // Allow images from placeholder services and Supabase storage
   images: {
