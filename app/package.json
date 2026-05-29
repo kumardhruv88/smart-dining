@@ -8,8 +8,9 @@
     "next:dev": "next dev",
     "next:build": "next build",
     "next:start": "next start",
-    "build": "prisma generate --schema=../prisma/schema.prisma && next build",
-    "vercel-build": "prisma generate --schema=../prisma/schema.prisma && next build",
+    "postinstall": "node -e \"const fs=require('fs');const p='prisma';if(!fs.existsSync(p))fs.mkdirSync(p);try{fs.copyFileSync('../prisma/schema.prisma',p+'/schema.prisma')}catch(e){console.log('skip schema copy')}\"",
+    "build": "prisma generate && next build",
+    "vercel-build": "prisma generate && next build",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
     "db:migrate": "prisma migrate dev --schema ../prisma/schema.prisma",
@@ -70,6 +71,6 @@
     "typescript": "^5.5.3"
   },
   "prisma": {
-    "schema": "../prisma/schema.prisma"
+    "schema": "./prisma/schema.prisma"
   }
 }

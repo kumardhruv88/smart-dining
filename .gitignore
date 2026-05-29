@@ -55,6 +55,7 @@ faiss_index/
 # =========================
 *.db
 *.db-journal
+app/prisma/
 
 # =========================
 # OS / Editor Files
