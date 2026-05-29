@@ -1,7 +1,7 @@
 ---
 title: Smart Dining AI
 emoji: 🍽️
-colorFrom: orange
+colorFrom: yellow
 colorTo: red
 sdk: docker
 pinned: false
