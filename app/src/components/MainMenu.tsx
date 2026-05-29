@@ -48,7 +48,7 @@ export function MainMenu() {
   const aboutSectionRef = useRef<HTMLDivElement>(null)
 
   const cartQuantityMap = cartItems.reduce((acc: Record<string, number>, item: any) => {
-    acc[item.menuItemId] = item.quantity
+    if (item.menuItem?.id) acc[item.menuItem.id] = item.quantity
     return acc
   }, {} as Record<string, number>)
 
@@ -113,8 +113,11 @@ export function MainMenu() {
           body: JSON.stringify({ menuItemId: item.id, quantity: 1, addedBy: displayName }),
         })
 
-        const updatedCartItems = [...cartItems, { menuItemId: item.id, name: item.name, price: item.price, quantity: 1, category: item.category, tags: item.tags }]
-        const cartTotal = updatedCartItems.reduce((s: number, i: any) => s + i.price * i.quantity, 0)
+        const updatedCartItems = [...cartItems, { 
+          quantity: 1, 
+          menuItem: { id: item.id, name: item.name, price: item.price, category: item.category, tags: item.tags }
+        }]
+        const cartTotal = updatedCartItems.reduce((s: number, i: any) => s + (i.menuItem?.price || 0) * i.quantity, 0)
 
         const upsellRes = await fetch('/api/upsell-check', {
           method: 'POST',
@@ -141,12 +144,12 @@ export function MainMenu() {
   }
 
   const handleRemoveItem = async (id: string) => {
-    const item = cartItems.find((i: any) => i.menuItemId === id)
+    const item = cartItems.find((i: any) => i.menuItem?.id === id)
     if (item) {
       removeCartItem(id)
-      if (sessionId && item.menuItemId) {
+      if (sessionId && item.menuItem?.id) {
         try {
-          await fetch(`/api/session/${sessionId}/cart/${item.menuItemId}`, { method: 'DELETE' })
+          await fetch(`/api/session/${sessionId}/cart/${item.menuItem.id}`, { method: 'DELETE' })
         } catch {}
       }
     }
