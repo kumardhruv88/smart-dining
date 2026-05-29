@@ -1,0 +1,126 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
+  extensions = [pgvector(map: "vector")]
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum SessionStatus {
+  ACTIVE
+  ORDERED
+  CLOSED
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  READY
+  DELIVERED
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Models
+// ─────────────────────────────────────────────────────────────────────────────
+
+model MenuItem {
+  id               String   @id @default(uuid())
+  name             String   @db.VarChar(120)
+  category         String   @db.VarChar(50)
+  price            Decimal  @db.Decimal(10, 2)
+  description      String
+  imageUrl         String
+  tags             String[]
+  allergens        String[]
+  available        Boolean  @default(true)
+  popularScore     Float    @default(0)
+  complementaryIds String[]
+  createdAt        DateTime @default(now())
+
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+
+  @@map("menu_items")
+}
+
+model Session {
+  id                  String        @id @default(uuid())
+  tableId             String        @db.VarChar(20)
+  status              SessionStatus @default(ACTIVE)
+  preferences         Json          @default("{}")
+  conversationSummary String?
+  createdAt           DateTime      @default(now())
+  expiresAt           DateTime
+
+  cartItems CartItem[]
+  order     Order?
+
+  @@map("sessions")
+}
+
+model CartItem {
+  id                  String   @id @default(uuid())
+  sessionId           String
+  menuItemId          String
+  quantity            Int      @default(1)
+  specialInstructions String?
+  addedBy             String   @db.VarChar(50)
+  createdAt           DateTime @default(now())
+
+  session  Session  @relation(fields: [sessionId], references: [id])
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id])
+
+  @@unique([sessionId, menuItemId])
+  @@map("cart_items")
+}
+
+model Order {
+  id            String      @id @default(uuid())
+  sessionId     String      @unique
+  customerName  String      @db.VarChar(100)
+  customerPhone String      @db.VarChar(15)
+  status        OrderStatus @default(PENDING)
+  totalAmount   Decimal     @db.Decimal(10, 2)
+  taxAmount     Decimal     @db.Decimal(10, 2)
+  createdAt     DateTime    @default(now())
+
+  session Session     @relation(fields: [sessionId], references: [id])
+  items   OrderItem[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id         String  @id @default(uuid())
+  orderId    String
+  menuItemId String
+  quantity   Int
+  unitPrice  Decimal @db.Decimal(10, 2)
+
+  order    Order    @relation(fields: [orderId], references: [id])
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id])
+
+  @@map("order_items")
+}
+
+/// Stores pgvector embeddings for semantic menu search
+model MenuEmbedding {
+  id         String                      @id @default(uuid())
+  menuItemId String                      @unique
+  embedding  Unsupported("vector(1536)")
+  createdAt  DateTime                    @default(now())
+
+  @@map("menu_embeddings")
+}

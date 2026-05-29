@@ -1,0 +1,3 @@
+# Ignore local SQLite databases used by Prisma
+*.db
+*.db-journal
