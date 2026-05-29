@@ -1,0 +1,6 @@
+{
+  "buildCommand": "cd app && npm install && npx prisma generate --schema=../prisma/schema.prisma && npm run next:build",
+  "outputDirectory": "app/.next",
+  "installCommand": "cd app && npm install",
+  "framework": "nextjs"
+}
