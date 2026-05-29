@@ -103,7 +103,7 @@ export function SuggestionCard({ itemId, name, price, reason, imageUrl, onAdd }:
           {name}
         </h4>
         <p style={{ color: '#8B7355', fontSize: '10px', fontStyle: 'italic', margin: '0 0 4px 0', lineHeight: 1.2, fontFamily: 'var(--font-sans)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          "{reason}"
+          &quot;{reason}&quot;
         </p>
         <span style={{ color: '#E8650A', fontSize: '12px', fontWeight: 700, fontFamily: 'var(--font-sans)' }}>₹{price}</span>
       </div>
