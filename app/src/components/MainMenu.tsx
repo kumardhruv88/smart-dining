@@ -107,17 +107,21 @@ export function MainMenu() {
     if (sessionId) {
       try {
         const displayName = sessionStorage.getItem('displayName') || 'User'
-        await fetch(`/api/session/${sessionId}/cart`, {
+        const res = await fetch(`/api/session/${sessionId}/cart`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ menuItemId: item.id, quantity: 1, addedBy: displayName }),
         })
+        const data = await res.json()
+        if (data.cart) {
+          useAppStore.getState().setCart(data.cart.items, data.cart.total, data.cart.gst)
+        }
 
-        const updatedCartItems = [...cartItems, { 
+        const updatedCartItems = data.cart ? data.cart.items : [...cartItems, { 
           quantity: 1, 
           menuItem: { id: item.id, name: item.name, price: item.price, category: item.category, tags: item.tags }
         }]
-        const cartTotal = updatedCartItems.reduce((s: number, i: any) => s + (i.menuItem?.price || 0) * i.quantity, 0)
+        const cartTotal = data.cart ? data.cart.total : updatedCartItems.reduce((s: number, i: any) => s + (i.menuItem?.price || 0) * i.quantity, 0)
 
         const upsellRes = await fetch('/api/upsell-check', {
           method: 'POST',

@@ -11,16 +11,20 @@ export function CartDrawer() {
   const handleQtyChange = async (itemId: string, newQty: number) => {
     if (newQty <= 0) {
       try {
-        await fetch(`/api/session/${sessionId}/cart/${itemId}`, {
+        const res = await fetch(`/api/session/${sessionId}/cart/${itemId}`, {
           method: 'DELETE',
           headers: {
             'x-display-name': encodeURIComponent(currentUser)
           }
         })
+        if (res.ok) {
+          const data = await res.json()
+          if (data.cart) useAppStore.getState().setCart(data.cart.items, data.cart.total, data.cart.gst)
+        }
       } catch {}
     } else if (sessionId) {
       try {
-        await fetch(`/api/session/${sessionId}/cart/${itemId}`, {
+        const res = await fetch(`/api/session/${sessionId}/cart/${itemId}`, {
           method: 'PATCH',
           headers: { 
             'Content-Type': 'application/json',
@@ -28,6 +32,10 @@ export function CartDrawer() {
           },
           body: JSON.stringify({ quantity: newQty }),
         })
+        if (res.ok) {
+          const data = await res.json()
+          if (data.cart) useAppStore.getState().setCart(data.cart.items, data.cart.total, data.cart.gst)
+        }
       } catch {}
     }
   }
@@ -35,7 +43,7 @@ export function CartDrawer() {
   const handleInstructionsChange = async (itemId: string, val: string) => {
     if (sessionId) {
       try {
-        await fetch(`/api/session/${sessionId}/cart/${itemId}`, {
+        const res = await fetch(`/api/session/${sessionId}/cart/${itemId}`, {
           method: 'PATCH',
           headers: { 
             'Content-Type': 'application/json',
@@ -43,6 +51,10 @@ export function CartDrawer() {
           },
           body: JSON.stringify({ specialInstructions: val }),
         })
+        if (res.ok) {
+          const data = await res.json()
+          if (data.cart) useAppStore.getState().setCart(data.cart.items, data.cart.total, data.cart.gst)
+        }
       } catch {}
     }
   }

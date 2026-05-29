@@ -69,7 +69,7 @@ export async function GET(
     // Sanitize
     const cleanMessage = message.replace(/<[^>]*>/g, "").slice(0, 500);
 
-    const aiServiceUrl = process.env.NEXT_PUBLIC_AI_SERVICE_URL || 'https://kumardhruv88-smart-dining-ai.hf.space';
+    const aiServiceUrl = process.env.NEXT_PUBLIC_AI_SERVICE_URL || 'https://aryan012234-smart-dining-backend.hf.space';
     if (!aiServiceUrl) {
       return NextResponse.json(
         { error: "AI service URL is not configured." },
