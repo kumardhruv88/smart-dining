@@ -8,6 +8,8 @@
     "next:dev": "next dev",
     "next:build": "next build",
     "next:start": "next start",
+    "build": "prisma generate --schema=../prisma/schema.prisma && next build",
+    "vercel-build": "prisma generate --schema=../prisma/schema.prisma && next build",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
     "db:migrate": "prisma migrate dev --schema ../prisma/schema.prisma",
