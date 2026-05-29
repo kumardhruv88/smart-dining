@@ -91,13 +91,17 @@ export function MainMenu() {
   }, [])
 
   const handleAddItem = async (item: CarouselMenuItem) => {
+    const displayName = sessionStorage.getItem('displayName') || 'User'
     addCartItem({
-      menuItemId: item.id,
-      name: item.name,
-      price: item.price,
       quantity: 1,
-      imageUrl: item.imageUrl,
-      tags: item.tags,
+      addedBy: displayName,
+      menuItem: {
+        id: item.id,
+        name: item.name,
+        price: item.price,
+        imageUrl: item.imageUrl,
+        tags: item.tags,
+      }
     })
 
     if (sessionId) {

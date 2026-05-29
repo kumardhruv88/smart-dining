@@ -19,6 +19,11 @@ function rnd(min: number, max: number): number {
 }
 
 const MENU_IMAGES: Record<string, string> = {
+  "Masala Dosa": "https://images.unsplash.com/photo-1627308595229-7830a5c18106?w=600&q=80",
+  "Idli Sambar": "https://images.unsplash.com/photo-1589301760014-d929f39ce9b1?w=600&q=80",
+  "Poha": "https://images.unsplash.com/photo-1601050690597-df0568f70950?w=600&q=80",
+  "Aloo Paratha": "https://images.unsplash.com/photo-1626509653291-18d9a934b9db?w=600&q=80",
+  "Chole Bhature": "https://images.unsplash.com/photo-1626132647523-66f5bf380027?w=600&q=80",
   "Paneer Tikka": "https://images.unsplash.com/photo-1567188040759-fb8a883dc6d8?w=600&q=80",
   "Hara Bhara Kabab": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=600&q=80",
   "Veg Spring Roll": "https://images.unsplash.com/photo-1548943487-a2e4e43b4853?w=600&q=80",
@@ -72,6 +77,63 @@ type RawItem = {
 };
 
 const ITEMS: RawItem[] = [
+  // ─── Breakfast (5) ────────────────────────────────────────────────────────
+  {
+    id: "bf-001",
+    name: "Masala Dosa",
+    category: "Breakfast",
+    price: 159,
+    description: "Crispy rice crepe filled with spiced potato masala, served with sambar and chutney.",
+    tags: ["veg", "breakfast", "bestseller", "dairy-free"],
+    allergens: ["mustard"],
+    complementaryIds: ["bf-002", "bev-hot-002"],
+    popularScore: rnd(0.4, 0.99),
+  },
+  {
+    id: "bf-002",
+    name: "Idli Sambar",
+    category: "Breakfast",
+    price: 119,
+    description: "Steamed rice cakes served with hot lentil sambar and coconut chutney.",
+    tags: ["veg", "breakfast", "light", "healthy"],
+    allergens: ["mustard"],
+    complementaryIds: ["bf-001", "bev-hot-002"],
+    popularScore: rnd(0.4, 0.99),
+  },
+  {
+    id: "bf-003",
+    name: "Poha",
+    category: "Breakfast",
+    price: 99,
+    description: "Flattened rice tossed with onions, peanuts, curry leaves, and turmeric.",
+    tags: ["veg", "breakfast", "light", "dairy-free"],
+    allergens: ["peanuts"],
+    complementaryIds: ["bev-hot-001"],
+    popularScore: rnd(0.4, 0.99),
+  },
+  {
+    id: "bf-004",
+    name: "Aloo Paratha",
+    category: "Breakfast",
+    price: 139,
+    description: "Whole wheat flatbread stuffed with spiced mashed potatoes, served with yogurt and pickle.",
+    tags: ["veg", "breakfast", "filling"],
+    allergens: ["gluten", "dairy"],
+    complementaryIds: ["bev-hot-001", "bev-cold-001"],
+    popularScore: rnd(0.4, 0.99),
+  },
+  {
+    id: "bf-005",
+    name: "Chole Bhature",
+    category: "Breakfast",
+    price: 199,
+    description: "Spicy chickpea curry served with fluffy, deep-fried leavened bread.",
+    tags: ["veg", "breakfast", "filling", "bestseller"],
+    allergens: ["gluten", "dairy"],
+    complementaryIds: ["bev-cold-001"],
+    popularScore: rnd(0.4, 0.99),
+  },
+
   // ─── Veg Starters (4) ────────────────────────────────────────────────────
   {
     id: "vs-001",

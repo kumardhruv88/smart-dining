@@ -132,7 +132,7 @@ export async function POST(
       total,
     };
 
-    const aiServiceUrl = process.env.NEXT_PUBLIC_AI_SERVICE_URL;
+    const aiServiceUrl = process.env.NEXT_PUBLIC_AI_SERVICE_URL || 'https://kumardhruv88-smart-dining-ai.hf.space';
     if (!aiServiceUrl) {
       return NextResponse.json(
         { error: "AI service URL is not configured." },

@@ -150,7 +150,7 @@ export async function POST(
     const { subtotal, gst, total } = calculateTotal(cartItems);
 
     // 5. Call FastAPI Order Validation Agent
-    const aiServiceUrl = process.env.NEXT_PUBLIC_AI_SERVICE_URL;
+    const aiServiceUrl = process.env.NEXT_PUBLIC_AI_SERVICE_URL || 'https://kumardhruv88-smart-dining-ai.hf.space';
     if (aiServiceUrl) {
       try {
         const validationRes = await fetch(`${aiServiceUrl}/validate-order`, {

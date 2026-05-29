@@ -246,18 +246,18 @@ export function ChatDrawer() {
           background: '#ffffff',
           flexShrink: 0,
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
             {/* Minimalist AI Avatar */}
             <div style={{
-              width: '32px',
-              height: '32px', 
+              width: '44px',
+              height: '44px', 
               borderRadius: '50%',
               background: '#E8650A',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               color: 'white',
-              fontSize: '14px',
+              fontSize: '22px',
               fontWeight: '700',
               fontFamily: 'var(--font-serif)',
             }}>Z</div>

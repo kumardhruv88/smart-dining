@@ -1,13 +1,18 @@
 import { create } from 'zustand'
 
 export interface CartItem {
-  cartItemId?: string
-  menuItemId: string
-  name: string
-  price: number
+  id?: string
   quantity: number
-  imageUrl?: string
-  tags?: string[]
+  addedBy?: string
+  specialInstructions?: string
+  menuItem: {
+    id: string
+    name: string
+    price: number
+    imageUrl?: string
+    category?: string
+    tags?: string[]
+  }
 }
 
 export interface AppState {
@@ -64,26 +69,26 @@ export const useAppStore = create<AppState>((set) => ({
   cartGst: 0,
   setCart: (items, total, gst) => set({ cartItems: items, cartTotal: total, cartGst: gst }),
   addCartItem: (item) => set((state) => {
-    const existing = state.cartItems.find(i => i.menuItemId === item.menuItemId)
+    const existing = state.cartItems.find(i => i.menuItem.id === item.menuItem.id)
     if (existing) {
       return {
         cartItems: state.cartItems.map(i => 
-          i.menuItemId === item.menuItemId ? { ...i, quantity: i.quantity + item.quantity } : i
+          i.menuItem.id === item.menuItem.id ? { ...i, quantity: i.quantity + item.quantity } : i
         ),
-        cartTotal: state.cartTotal + (item.price * item.quantity)
+        cartTotal: state.cartTotal + (item.menuItem.price * item.quantity)
       }
     }
     return {
       cartItems: [...state.cartItems, item],
-      cartTotal: state.cartTotal + (item.price * item.quantity)
+      cartTotal: state.cartTotal + (item.menuItem.price * item.quantity)
     }
   }),
   removeCartItem: (id) => set((state) => {
-    const item = state.cartItems.find(i => i.menuItemId === id)
+    const item = state.cartItems.find(i => i.menuItem.id === id)
     if (!item) return state
     return {
-      cartItems: state.cartItems.filter(i => i.menuItemId !== id),
-      cartTotal: state.cartTotal - (item.price * item.quantity)
+      cartItems: state.cartItems.filter(i => i.menuItem.id !== id),
+      cartTotal: state.cartTotal - (item.menuItem.price * item.quantity)
     }
   }),
   

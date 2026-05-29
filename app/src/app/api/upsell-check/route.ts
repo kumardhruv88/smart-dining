@@ -3,7 +3,7 @@ import { type NextRequest, NextResponse } from "next/server";
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     const body = await req.json();
-    const aiServiceUrl = process.env.NEXT_PUBLIC_AI_SERVICE_URL;
+    const aiServiceUrl = process.env.NEXT_PUBLIC_AI_SERVICE_URL || 'https://kumardhruv88-smart-dining-ai.hf.space';
 
     if (!aiServiceUrl) {
       console.warn("AI service URL not configured.");
