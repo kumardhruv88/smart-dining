@@ -77,12 +77,20 @@ export function ChatDrawer() {
     }
   }, [chatMessages, isTyping])
 
+  useEffect(() => {
+    if (isChatOpen && chatMessages.length === 0) {
+      handleSend('Hello, I just joined the table!', true)
+    }
+  }, [isChatOpen, chatMessages.length])
+
   const handleClose = () => setChatOpen(false)
 
-  const handleSend = async (text: string) => {
+  const handleSend = async (text: string, isHidden: boolean = false) => {
     if (!text.trim() || !sessionId) return
-    const newMsg = { id: Date.now().toString(), sender: 'user', text, timestamp: new Date() }
-    addChatMessage(newMsg)
+    if (!isHidden) {
+      const newMsg = { id: Date.now().toString(), sender: 'user', text, timestamp: new Date() }
+      addChatMessage(newMsg)
+    }
     setInput('')
     setIsTyping(true)
 
