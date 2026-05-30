@@ -242,48 +242,6 @@ export function MainMenu() {
         onScrollToAbout={scrollToAbout}
       />
 
-      {/* ── Active Orders Tracking Banner ────────────────────────────── */}
-      {activeOrders.length > 0 && (
-        <div style={{
-          padding: '16px 24px',
-          background: '#FAF7F2',
-          display: 'flex',
-          justifyContent: 'center',
-          borderBottom: '1px solid #E8DCC8',
-        }}>
-          <button
-            onClick={() => window.location.href = `/table/${tableId}/confirmation?orderId=${activeOrders[activeOrders.length - 1]}`}
-            style={{
-              padding: '12px 24px',
-              borderRadius: '9999px',
-              background: '#2D1810',
-              color: '#FAF7F2',
-              border: 'none',
-              fontWeight: '600',
-              fontSize: '14px',
-              fontFamily: 'var(--font-sans)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              cursor: 'pointer',
-              boxShadow: '0 4px 12px rgba(45, 24, 16, 0.15)',
-              transition: 'transform 0.2s, background 0.2s'
-            }}
-            onMouseEnter={e => {
-              (e.currentTarget as HTMLButtonElement).style.background = '#1A0E08';
-              (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)';
-            }}
-            onMouseLeave={e => {
-              (e.currentTarget as HTMLButtonElement).style.background = '#2D1810';
-              (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)';
-            }}
-          >
-            <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: '#E8650A', animation: 'pulse 1.5s infinite' }}></span>
-            Track Active Order
-          </button>
-        </div>
-      )}
-
       {/* ── "Browse Full Menu" CTA ────────────────────────────────── */}
       <div
         id="full-menu-section"

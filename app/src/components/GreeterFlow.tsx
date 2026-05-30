@@ -172,7 +172,7 @@ export function GreeterFlow({ tableId, onSubmit, onSkip }: GreeterFlowProps) {
           }}>
             Select your preferences
           </p>
-          <div style={{ display: 'flex', overflowX: 'auto', gap: '8px', paddingBottom: '4px' }} className="no-scrollbar">
+          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '8px', paddingBottom: '4px' }} className="no-scrollbar">
             {PREFERENCES.map(pref => {
               const active = selected.includes(pref.value)
               return (
