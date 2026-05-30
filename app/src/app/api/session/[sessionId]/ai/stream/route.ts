@@ -100,7 +100,7 @@ export async function GET(
     upstreamUrl.searchParams.set("cartSummary", JSON.stringify(cartSummary));
     upstreamUrl.searchParams.set(
       "preferences",
-      JSON.stringify(session.preferences)
+      typeof session.preferences === 'string' ? session.preferences : JSON.stringify(session.preferences || {})
     );
 
     const upstream = await fetch(upstreamUrl.toString(), {

@@ -156,7 +156,7 @@ export async function POST(
         message,
         sessionId,
         tableId: session.tableId,
-        preferences: session.preferences,
+        preferences: typeof session.preferences === 'string' ? JSON.parse(session.preferences || '{}') : (session.preferences || {}),
         cartSummary,
         timeOfDay: getTimeOfDay(),
         addedBy,
