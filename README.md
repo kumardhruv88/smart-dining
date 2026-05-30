@@ -1,185 +1,133 @@
-# 🍽️ Smart Dining Assistant
+<div align="center">
+  <img src="https://img.icons8.com/color/96/000000/restaurant-menu.png" alt="Smart Dining Logo" width="80" />
+  <h1>🍽️ Smart Dining Assistant</h1>
+  <p>An AI-powered smart dining assistant that transforms the restaurant experience.</p>
+  
+  [![Next.js](https://img.shields.io/badge/Next.js-14-black?logo=next.js)](https://nextjs.org/)
+  [![TypeScript](https://img.shields.io/badge/TypeScript-Strict-blue?logo=typescript)](https://www.typescriptlang.org/)
+  [![Python](https://img.shields.io/badge/Python-FastAPI-green?logo=python)](https://fastapi.tiangolo.com/)
+  [![Groq](https://img.shields.io/badge/LLM-Llama_3.3_70B-orange?logo=meta)](https://groq.com/)
+  [![HuggingFace](https://img.shields.io/badge/AI_Backend-Hugging_Face-yellow?logo=huggingface)](https://huggingface.co/)
+</div>
 
-An AI-powered smart dining assistant that transforms the restaurant experience with intelligent multi-agent menu recommendations, voice-enabled ordering, real-time group table coordination, and conversational checkout — all without requiring a login.
+<br/>
 
-> Built with: **Next.js 14 · FastAPI · LangChain · Groq · FAISS · PostgreSQL · Redis · Socket.io**
+> **Smart Dining** replaces traditional tablet menus with an intelligent, multi-agent AI assistant. It supports voice-enabled ordering, real-time group table coordination, conversational checkout, and contextual upselling — all without requiring an app download or login.
+
+## ✨ Key Features
+
+- 💬 **Conversational AI First:** Order naturally using English, **Hinglish**, or Telugu-English. Zara (the AI) understands context and remembers preferences.
+- 👨‍👩‍👧‍👦 **Real-Time Group Ordering:** Scan the table QR code. Multiple users can join the same session. Live WebSockets sync the cart instantly across devices.
+- 🧠 **Contextual Upselling:** AI suggests drinks when you order mains, combos when near a milestone, and desserts after a meal.
+- 🏎️ **Lightning Fast Search:** Semantic menu search using FAISS and Groq LPU inference. No hallucinations.
+- 🎯 **Persistent Tracking:** Track your active orders from the main menu via a persistent sticky banner.
 
 ---
 
-## 🏗️ Architecture
-
-```
-smart-dining/
-├── app/                  → Next.js 14 App Router (frontend + BFF API routes)
-│   ├── src/app/          → Pages (table/[tableId], confirmation)
-│   ├── src/components/   → UI (ChatDrawer, CartDrawer, CheckoutModal…)
-│   ├── src/app/api/      → REST API (session, cart, order, otp, menu)
-│   └── src/lib/          → Utilities (otp.ts, redis.ts, session.ts…)
-├── ai/                   → FastAPI Python microservice (LangChain agents)
-│   ├── agents/           → 8 specialised AI agents
-│   ├── tools/            → Cart, menu, checkout tools
-│   ├── memory/           → Redis-backed session memory
-│   └── main.py           → Streaming router + intent dispatcher
-└── prisma/               → Schema + seed (30 menu items, 9 categories)
-```
+## 🏗️ System Architecture
 
 ```mermaid
-graph LR
-    User -->|QR scan| Next.js
-    Next.js -->|SSE stream| FastAPI
-    FastAPI --> NLU --> Orchestrator
-    Orchestrator --> RecommendationAgent
-    Orchestrator --> UpsellAgent
-    Orchestrator --> GroupCoordinator
-    Orchestrator --> SentimentAgent
-    Orchestrator --> OrderValidation
-    RecommendationAgent --> FAISS[(FAISS Vector Store)]
-    FastAPI --> Groq[Groq LLM\nllama-3.3-70b]
-    Next.js --> PostgreSQL[(Supabase PostgreSQL)]
-    Next.js --> Redis[(Upstash Redis)]
-    Next.js -->|WebSocket| Kitchen
+graph TD
+    subgraph Client [Frontend - Next.js 14]
+        QR[QR Code Scan] --> Table[Table Session]
+        Table --> Menu[Digital Menu]
+        Table --> Chat[Zara AI Chat]
+        Table --> Cart[Real-time Shared Cart]
+    end
+
+    subgraph Backend [Node.js API + Supabase]
+        CartAPI[Cart & Session Sync]
+        Socket[Socket.io Broadcaster]
+        DB[(PostgreSQL)]
+    end
+
+    subgraph AILayer [AI Microservice - FastAPI]
+        Router[Intent Router]
+        Greeter[Greeter Agent]
+        Recommender[Recommendation Agent]
+        Upsell[Upsell Agent]
+        NLU[NLU Agent]
+        VectorStore[(FAISS)]
+    end
+
+    Client <-->|SSE Stream| AILayer
+    Client <-->|REST & WebSockets| Backend
+    Backend <--> DB
+    AILayer -->|Queries| VectorStore
 ```
 
 ---
 
-## 🤖 AI Agent Design
+## 🤖 Multi-Agent Orchestration
 
-| Agent | Responsibility | Tools Used |
+The backend utilizes an advanced Router-Orchestrator pattern. A fast Llama-3.3-8B model classifies intent, then dispatches the request to specialized agents powered by Llama-3.3-70B.
+
+| Agent | Responsibility | Memory/Tools |
 |---|---|---|
-| **NLU Agent** | Classifies intent, detects language (Hinglish/Telugu-English/English), extracts entities | Groq LLM |
-| **Recommendation Agent** | Semantic menu search respecting preferences, allergens, time-of-day | FAISS, search_menu |
-| **Upsell Agent** | 6 trigger points: post-add, cart milestone, session time, reorder, dessert gap, drink gap | get_cart, get_complementary |
-| **Context Memory Agent** | Tracks and updates user preferences throughout session | Redis, update_preference |
-| **Group Coordinator** | Handles multi-person table joins, veg/non-veg split, group-safe suggestions | session tools |
-| **Sentiment Agent** | Detects frustration/hesitation from consecutive signals, rephrases Zara's tone | session memory |
-| **Order Validation Agent** | Validates cart pre-checkout: minimum order, stock, allergen flags | validate_stock |
-| **Greeter Agent** | 2-question onboarding to seed initial context | session memory |
+| **NLU Agent** | Normalizes colloquial Hinglish into strict JSON intents. | Groq (8b-instant) |
+| **Recommendation Agent** | Semantic search + reasoning. Respects active filters (e.g. no dairy). | FAISS, `search_menu` |
+| **Upsell Agent** | Non-pushy, contextual pairings based on current cart state. | `get_complementary` |
+| **Context Memory Agent** | Tracks state ("skip dessert", "allergic to nuts") across turns. | Redis |
+| **Order Validation** | Confirms stock and applies final verification pre-checkout. | `validate_stock` |
 
 ---
 
 ## 🛠️ Tech Stack
 
-| Layer | Technology |
-|---|---|
-| **Frontend** | Next.js 14 App Router, TypeScript (strict), Vanilla CSS |
-| **State** | Zustand |
-| **Database** | Prisma ORM → Supabase PostgreSQL |
-| **Cache / Sessions** | Upstash Redis (ioredis) |
-| **Real-time** | Socket.io |
-| **AI Microservice** | Python 3.11, FastAPI, LangChain |
-| **LLM** | Groq (llama-3.3-70b-versatile) — fast streaming |
-| **Vector Store** | FAISS (sentence-transformers embeddings) |
-| **AI Deployment** | Hugging Face Spaces (Docker) |
-| **Frontend Deployment** | Vercel |
+- **Frontend Framework:** Next.js 14 (App Router)
+- **State Management:** Zustand
+- **Real-Time Engine:** Socket.io
+- **Backend APIs:** Next.js API Routes (BFF)
+- **Database:** Prisma ORM connecting to Supabase PostgreSQL
+- **AI Microservice:** Python 3.11, FastAPI, LangChain
+- **Vector DB:** FAISS (in-memory, optimized for HuggingFace Spaces)
+- **LLM Provider:** Groq (Llama-3.3-70b-versatile for logic, 8b for routing)
 
 ---
 
-## ⚡ Quick Start (Local)
+## 🚀 Quick Start (Local Development)
 
-### 1. Clone and install
-
+### 1. Frontend Setup
 ```bash
-git clone https://github.com/YOUR_USERNAME/smart-dining
-cd smart-dining/app
+git clone https://github.com/kumardhruv88/smart-dining
+cd smart-dining/app/src
 npm install
 ```
 
-### 2. Configure environment
-
-```bash
-cp ../.env.example .env
-# Fill in: DATABASE_URL, REDIS_URL, GROQ_API_KEY
-# OTP_PROVIDER=mock (use any number, OTP=123456)
+### 2. Environment Variables
+Create a `.env` file in the root based on `.env.example`:
+```env
+DATABASE_URL="your-supabase-url"
+REDIS_URL="your-upstash-redis-url"
+NEXT_PUBLIC_API_URL="http://localhost:3000"
 ```
 
-### 3. Seed the database
-
+### 3. Database Seed
 ```bash
 npx prisma migrate deploy
 npx ts-node prisma/seed.ts
 ```
 
-### 4. Start the frontend
-
+### 4. Start Development Server
 ```bash
 npm run dev
-# → http://localhost:7564
+# App runs at http://localhost:3000/table/T1
 ```
 
-### 5. Start the AI service
-
-```bash
-cd ../ai
-pip install -r requirements.txt
-uvicorn main:app --reload --port 7860
-# → http://localhost:7860
-```
-
-### 6. Open the app
-
-Visit: `http://localhost:7564/table/T1`
+> **Note on AI Backend:** The AI microservice has been moved to its own repository and deployed on HuggingFace Spaces for 24/7 availability.
 
 ---
 
-## 🧪 Testing the AI
+## 🧪 Testing the Flows
 
-Try these prompts in the chat:
-
-| Prompt | What happens |
-|---|---|
-| `"kuch spicy aur light chahiye"` | Hinglish → spicy+light recommendations |
-| `"konchem spicy ga undali, veg kaadu"` | Telugu-English → spicy non-veg |
-| `"sumthing swt plz"` | Typo-corrected → sweet desserts |
-| `"We're 4 people, 2 veg 2 non-veg"` | Group coordinator → balanced suggestions |
-| `"order karo"` → number → `123456` | Full AI checkout flow |
-
----
-
-## 🔑 OTP Testing
-
-**OTP is in mock mode** — works with any phone number:
-
-```
-Phone: any 10-digit number (e.g., 9876543210)
-OTP: 123456
-```
-
-All ordering logic (menu-based or AI-chat) uses the same flow.
-
----
-
-## 🏗️ Design Decisions
-
-**Why Groq instead of OpenAI?**
-Groq's inference is 10-20x faster for streaming, which makes the chat feel instant. For a dining assistant where response latency matters, this is a better UX trade-off.
-
-**Why FAISS instead of pgvector/ChromaDB?**
-FAISS runs in-memory and embeds at startup, making it perfect for Hugging Face Spaces deployment where persistent volumes aren't available. Sub-5ms semantic search for a 30-item menu.
-
-**Why Zustand instead of Redux?**
-Minimal boilerplate for a focused real-time cart + chat state. The store is < 200 lines covering cart, session, messages, and modals.
-
----
-
-## 📡 API Reference
-
-| Method | Endpoint | Description |
+| Action | How to test | Expected Result |
 |---|---|---|
-| GET | `/api/menu` | All menu items |
-| GET | `/api/menu/search?q=` | Fuzzy + tag search |
-| GET | `/api/table/:tableId/session` | Create or get session |
-| GET | `/api/session/:id/cart` | Get cart |
-| POST | `/api/session/:id/cart` | Add item |
-| PATCH | `/api/session/:id/cart/:itemId` | Update quantity |
-| DELETE | `/api/session/:id/cart/:itemId` | Remove item |
-| GET | `/api/session/:id/ai/stream?message=` | SSE AI stream |
-| POST | `/api/otp/send` | Send OTP (mock: 123456) |
-| POST | `/api/otp/verify` | Verify OTP → JWT token |
-| POST | `/api/session/:id/order` | Place order |
-| GET | `/api/order/:orderId` | Order status + items |
+| **Hinglish Intent** | Type: `"kuch spicy aur light chahiye"` | AI finds low-calorie, spicy items via FAISS. |
+| **Smart Cart** | Add an item to cart via chat | UI updates cart counter, Upsell agent fires. |
+| **Checkout & OTP** | Type: `"order karo"` | AI asks for phone number, triggers mock OTP `123456`. |
+| **Persistent Tracking** | Navigate back to menu after order | Floating "Track Active Order" pill appears. |
 
 ---
 
-## License
-
-MIT
+## 📄 License
+MIT License. Created for the Smart Dining Assistant Internship Project.
