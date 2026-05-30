@@ -90,55 +90,68 @@ export function ChatDrawer() {
     addChatMessage({ id: zaraId, sender: 'Zara', text: '', suggestions: [], timestamp: new Date() })
 
     try {
-      // Use POST /ai/chat - works reliably on Vercel serverless (no persistent connection needed)
-      const res = await fetch(`/api/session/${sessionId}/ai/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: text,
-          tableId: tableId ?? 'T1',
-        }),
-      })
+      const url = `/api/session/${sessionId}/ai/stream?message=${encodeURIComponent(text)}`
+      const res = await fetch(url, { method: 'GET' })
 
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}))
-        console.error('[AI Chat Error]', res.status, errData)
-        updateChatMessage(zaraId, "Sorry, I'm having trouble connecting right now. Please try again!", [])
-        setIsTyping(false)
-        return
+      if (!res.ok || !res.body) {
+        throw new Error("Stream connection failed")
       }
 
-      const data = await res.json()
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let fullMessage = ""
+      let suggestions: any[] = []
+      let action = ""
+      let buffer = ""
 
-      let displayMsg = data.message || ''
-      let suggestions: any[] = data.suggestions || data.items || []
-      let action = data.action || ''
-
-      // Parse if message contains embedded JSON
-      if (displayMsg) {
-        const cleanText = displayMsg.replace(/```(?:json)?\s*/g, '').replace(/```\s*/g, '').trim()
-        const firstBrace = cleanText.indexOf('{')
-        const lastBrace = cleanText.lastIndexOf('}')
-        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace >= firstBrace) {
-          const textBefore = cleanText.substring(0, firstBrace).trim()
-          const jsonStr = cleanText.substring(firstBrace, lastBrace + 1)
-          try {
-            const parsed = JSON.parse(jsonStr)
-            if (parsed.__json_meta) {
-              suggestions = parsed.__json_meta.suggestions || suggestions
-              action = parsed.__json_meta.action || action
-            } else if (parsed.suggestions || parsed.items) {
-              suggestions = parsed.suggestions || parsed.items || suggestions
-              action = parsed.action || action
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        
+        let boundary = buffer.indexOf('\n\n')
+        while (boundary !== -1) {
+          const chunk = buffer.slice(0, boundary)
+          buffer = buffer.slice(boundary + 2)
+          
+          if (chunk.startsWith('data: ')) {
+            const dataStr = chunk.replace('data: ', '').trim()
+            if (dataStr === '[DONE]') break
+            try {
+              const parsed = JSON.parse(dataStr)
+              if (typeof parsed === 'string') {
+                if (parsed.includes('__json_meta')) {
+                  const meta = JSON.parse(parsed)
+                  if (meta.__json_meta) {
+                    if (meta.__json_meta.suggestions) suggestions = meta.__json_meta.suggestions
+                    if (meta.__json_meta.action) action = meta.__json_meta.action
+                    if (meta.__json_meta.clearCart) setCart([], 0, 0)
+                  }
+                } else if (parsed.includes('{"message":')) {
+                  const obj = JSON.parse(parsed)
+                  if (obj.message) fullMessage += obj.message
+                  if (obj.suggestions) suggestions = obj.suggestions
+                } else {
+                  fullMessage += parsed
+                }
+              } else if (typeof parsed === 'object') {
+                  if (parsed.__json_meta) {
+                    if (parsed.__json_meta.suggestions) suggestions = parsed.__json_meta.suggestions
+                    if (parsed.__json_meta.action) action = parsed.__json_meta.action
+                    if (parsed.__json_meta.clearCart) setCart([], 0, 0)
+                  } else if (parsed.message) {
+                    fullMessage += parsed.message
+                    if (parsed.suggestions) suggestions = parsed.suggestions
+                  }
+              }
+              updateChatMessage(zaraId, fullMessage.trim(), suggestions)
+            } catch (e) {
+              // silent ignore for parse errors
             }
-            if (textBefore) displayMsg = textBefore
-            else if (parsed.message) displayMsg = parsed.message
-            if (parsed?.__json_meta?.clearCart) setCart([], 0, 0)
-          } catch { /* keep displayMsg as-is */ }
+          }
+          boundary = buffer.indexOf('\n\n')
         }
       }
-
-      updateChatMessage(zaraId, displayMsg, suggestions)
 
       if (action && action.startsWith('redirect:')) {
         const redirectUrl = action.replace('redirect:', '')
