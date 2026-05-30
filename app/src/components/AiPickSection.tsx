@@ -12,6 +12,8 @@ interface AiPickSectionProps {
   sessionId: string
   timeOfDay: string
   onAdd: (itemId: string) => void
+  tableId?: string
+  allItems?: any[]
 }
 
 import { useAppStore } from '@/store'
@@ -19,6 +21,10 @@ import { useAppStore } from '@/store'
 function getSmartImage(imageUrl?: string, name?: string): string {
   if (imageUrl && !imageUrl.includes('placehold.co') && imageUrl.startsWith('http')) return imageUrl
   const txt = (name || '').toLowerCase()
+  if (txt.includes('idli') || txt.includes('idly')) return 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=400&q=80'
+  if (txt.includes('dosa') || txt.includes('masala dosa') || txt.includes('uttapam')) return 'https://images.unsplash.com/photo-1630383249896-424e482df921?auto=format&fit=crop&w=400&q=80'
+  if (txt.includes('sambar')) return 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=400&q=80'
+  if (txt.includes('vada') || txt.includes('medu')) return 'https://images.unsplash.com/photo-1567188040759-fb8a883dc6d6?auto=format&fit=crop&w=400&q=80'
   if (txt.includes('rogan') || txt.includes('josh')) return 'https://images.unsplash.com/photo-1585937421612-70a008356fbe?auto=format&fit=crop&w=400&q=80'
   if (txt.includes('mutton') || txt.includes('lamb')) return 'https://images.unsplash.com/photo-1603360946369-dc9bb6258143?auto=format&fit=crop&w=400&q=80'
   if (txt.includes('chicken') || txt.includes('tikka') || txt.includes('butter chicken')) return 'https://images.unsplash.com/photo-1599487405270-81781229f338?auto=format&fit=crop&w=400&q=80'
@@ -30,7 +36,8 @@ function getSmartImage(imageUrl?: string, name?: string): string {
   if (txt.includes('naan') || txt.includes('roti') || txt.includes('paratha')) return 'https://images.unsplash.com/photo-1610975989137-6e5d8f17e6a2?auto=format&fit=crop&w=400&q=80'
   if (txt.includes('rice') || txt.includes('chawal')) return 'https://images.unsplash.com/photo-1633945274405-b6c8069047b0?auto=format&fit=crop&w=400&q=80'
   if (txt.includes('samosa') || txt.includes('pakora') || txt.includes('chaat')) return 'https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=400&q=80'
-  if (txt.includes('jamun') || txt.includes('kulfi') || txt.includes('kheer')) return 'https://images.unsplash.com/photo-1551024601-bec78aea704b?auto=format&fit=crop&w=400&q=80'
+  if (txt.includes('gulab') || txt.includes('jamun')) return 'https://images.unsplash.com/photo-1666789826285-7cab1e40ffbb?auto=format&fit=crop&w=400&q=80'
+  if (txt.includes('kulfi') || txt.includes('kheer') || txt.includes('halwa')) return 'https://images.unsplash.com/photo-1551024601-bec78aea704b?auto=format&fit=crop&w=400&q=80'
   if (txt.includes('cake') || txt.includes('brownie') || txt.includes('ice cream')) return 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=400&q=80'
   if (txt.includes('lassi') || txt.includes('chaas')) return 'https://images.unsplash.com/photo-1622597467836-f3e6dc5a7edd?auto=format&fit=crop&w=400&q=80'
   if (txt.includes('tea') || txt.includes('chai') || txt.includes('coffee')) return 'https://images.unsplash.com/photo-1544145945-f90425340c7e?auto=format&fit=crop&w=400&q=80'
@@ -40,11 +47,30 @@ function getSmartImage(imageUrl?: string, name?: string): string {
   return 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80'
 }
 
-export function AiPickSection({ sessionId, timeOfDay, onAdd }: AiPickSectionProps) {
+export function AiPickSection({ sessionId, timeOfDay, onAdd, tableId: propTableId, allItems = [] }: AiPickSectionProps) {
   const [suggestions, setSuggestions] = useState<AiSuggestion[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
-  const { preferences } = useAppStore()
+  const { preferences, tableId: storeTableId } = useAppStore()
+  const tableId = propTableId || storeTableId || 'T1'
+
+  // Fallback: pick top items from allItems when AI is unavailable
+  const getFallbackSuggestions = (): AiSuggestion[] => {
+    const timeMessages: Record<string, string> = {
+      breakfast: 'Perfect morning pick!',
+      lunch: 'Great lunch choice!',
+      evening: 'Perfect evening snack!',
+      dinner: 'Ideal dinner choice!',
+    }
+    const reason = timeMessages[timeOfDay] || 'Chef\'s recommendation!'
+    return allItems.slice(0, 3).map((item: any) => ({
+      itemId: item.id,
+      name: item.name,
+      price: item.price,
+      reason,
+      imageUrl: item.imageUrl,
+    }))
+  }
 
   useEffect(() => {
     async function fetchPicks() {
@@ -53,8 +79,8 @@ export function AiPickSection({ sessionId, timeOfDay, onAdd }: AiPickSectionProp
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            message: `suggest 3 items for me right now based on my preferences`,
-            tableId: 'unknown',
+            message: `Give me exactly 3 ${timeOfDay} recommendations from the menu right now. Return JSON with suggestions array.`,
+            tableId,
             timeOfDay,
             preferences
           })
@@ -62,18 +88,26 @@ export function AiPickSection({ sessionId, timeOfDay, onAdd }: AiPickSectionProp
         const data = await res.json()
         if (data.suggestions && data.suggestions.length > 0) {
           setSuggestions(data.suggestions.slice(0, 3))
+        } else if (allItems.length > 0) {
+          // Fallback to menu items if AI doesn't return suggestions
+          setSuggestions(getFallbackSuggestions())
         } else {
           setError(true)
         }
       } catch (e) {
         console.error("AI Pick error", e)
-        setError(true)
+        if (allItems.length > 0) {
+          setSuggestions(getFallbackSuggestions())
+        } else {
+          setError(true)
+        }
       } finally {
         setLoading(false)
       }
     }
-    fetchPicks()
-  }, [sessionId, timeOfDay, preferences])
+    if (sessionId) fetchPicks()
+    else setLoading(false)
+  }, [sessionId, timeOfDay])
 
   if (!loading && error && suggestions.length === 0) {
     return (

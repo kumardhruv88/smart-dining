@@ -341,7 +341,9 @@ export function MainMenu() {
           {sessionId && (
             <AiPickSection
               sessionId={sessionId}
+              tableId={tableId || undefined}
               timeOfDay={timeOfDay}
+              allItems={allItems}
               onAdd={(itemId) => {
                 const item = allItems.find(i => i.id === itemId)
                 if (item) handleAddItem(item)
@@ -489,9 +491,11 @@ export function MainMenu() {
           <div
             className="animate-in slide-in-from-right duration-300"
             style={{
-              position: 'relative', width: '100%', maxWidth: '260px', height: '100%',
+              position: 'relative', width: '100%', maxWidth: '300px',
+              height: 'auto', maxHeight: '90vh',
               background: '#FAF7F2', overflowY: 'auto',
               display: 'flex', flexDirection: 'column',
+              borderRadius: '16px 0 0 16px',
             }}
           >
             <div style={{

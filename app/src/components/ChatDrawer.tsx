@@ -89,107 +89,69 @@ export function ChatDrawer() {
     const zaraId = 'zara_' + Date.now().toString()
     addChatMessage({ id: zaraId, sender: 'Zara', text: '', suggestions: [], timestamp: new Date() })
 
-    const eventSource = new EventSource(
-      `/api/session/${sessionId ?? ''}/ai/stream?message=${encodeURIComponent(text)}&tableId=${encodeURIComponent(tableId ?? 'T1')}`
-    )
-    let fullText = ''
+    try {
+      // Use POST /ai/chat - works reliably on Vercel serverless (no persistent connection needed)
+      const res = await fetch(`/api/session/${sessionId}/ai/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: text,
+          tableId: tableId ?? 'T1',
+        }),
+      })
 
-    eventSource.onmessage = (e) => {
-      if (e.data === '[DONE]') {
-        eventSource.close()
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        console.error('[AI Chat Error]', res.status, errData)
+        updateChatMessage(zaraId, "Sorry, I'm having trouble connecting right now. Please try again!", [])
         setIsTyping(false)
-        
-        let suggestions: any[] = []
-        let action = ''
-        let displayMsg = fullText
+        return
+      }
 
-        // Clean markdown
-        const cleanText = fullText.replace(/```(?:json)?\s*/g, '').replace(/```\s*/g, '').trim()
+      const data = await res.json()
+
+      let displayMsg = data.message || ''
+      let suggestions: any[] = data.suggestions || data.items || []
+      let action = data.action || ''
+
+      // Parse if message contains embedded JSON
+      if (displayMsg) {
+        const cleanText = displayMsg.replace(/```(?:json)?\s*/g, '').replace(/```\s*/g, '').trim()
         const firstBrace = cleanText.indexOf('{')
         const lastBrace = cleanText.lastIndexOf('}')
-
         if (firstBrace !== -1 && lastBrace !== -1 && lastBrace >= firstBrace) {
           const textBefore = cleanText.substring(0, firstBrace).trim()
           const jsonStr = cleanText.substring(firstBrace, lastBrace + 1)
-          let parsed: any = null
           try {
-            parsed = JSON.parse(jsonStr)
-            
-            // Check for __json_meta or direct structure
+            const parsed = JSON.parse(jsonStr)
             if (parsed.__json_meta) {
-              suggestions = parsed.__json_meta.suggestions || []
-              action = parsed.__json_meta.action || ''
-            } else if (parsed.suggestions || parsed.items || parsed.message) {
-              suggestions = parsed.suggestions || parsed.items || []
-              action = parsed.action || ''
+              suggestions = parsed.__json_meta.suggestions || suggestions
+              action = parsed.__json_meta.action || action
+            } else if (parsed.suggestions || parsed.items) {
+              suggestions = parsed.suggestions || parsed.items || suggestions
+              action = parsed.action || action
             }
-
-            // Display message: prefer text before JSON. If none, use parsed.message
-            if (textBefore) {
-              displayMsg = textBefore
-            } else if (parsed.message) {
-              displayMsg = parsed.message
-            } else {
-              displayMsg = ''
-            }
-          } catch {
-            // If parse fails, at least hide the JSON string if there was text before it
             if (textBefore) displayMsg = textBefore
-          }
-
-          updateChatMessage(zaraId, displayMsg, suggestions)
-
-          // Handle clearCart: wipe cart store so items disappear after AI-driven order
-          if (parsed?.__json_meta?.clearCart) {
-            setCart([], 0, 0)
-          }
-        } else {
-          displayMsg = cleanText
-          updateChatMessage(zaraId, displayMsg, suggestions)
+            else if (parsed.message) displayMsg = parsed.message
+            if (parsed?.__json_meta?.clearCart) setCart([], 0, 0)
+          } catch { /* keep displayMsg as-is */ }
         }
-
-        if (action && action.startsWith('redirect:')) {
-          const redirectUrl = action.replace('redirect:', '')
-          setTimeout(() => {
-            window.location.href = redirectUrl
-          }, 2000)
-        }
-        return
-      }
-      
-      try {
-        const parsedData = JSON.parse(e.data)
-        fullText += parsedData
-      } catch {
-        fullText += e.data
       }
 
-      let displayMsg = fullText
-      const cleanText = fullText.replace(/```(?:json)?\s*/g, '').replace(/```\s*/g, '').trim()
-      const firstBrace = cleanText.indexOf('{')
-      
-      if (firstBrace !== -1) {
-         const textBefore = cleanText.substring(0, firstBrace).trim()
-         if (textBefore) {
-            displayMsg = textBefore
-         } else {
-            // If there's no text before, try extracting a "message": "..." field with regex
-            const msgMatch = cleanText.match(/"message"\s*:\s*"([^"]+)/)
-            if (msgMatch) {
-               displayMsg = msgMatch[1] ?? ''
-            } else {
-               displayMsg = '' // Hide raw JSON brackets from user while streaming
-            }
-         }
-      } else {
-         displayMsg = cleanText
+      updateChatMessage(zaraId, displayMsg, suggestions)
+
+      if (action && action.startsWith('redirect:')) {
+        const redirectUrl = action.replace('redirect:', '')
+        setTimeout(() => { window.location.href = redirectUrl }, 2000)
       }
-      
-      updateChatMessage(zaraId, displayMsg)
+    } catch (err) {
+      console.error('[AI Chat fetch error]', err)
+      updateChatMessage(zaraId, "Sorry, I couldn't reach the AI service. Please try again!", [])
+    } finally {
+      setIsTyping(false)
     }
-
-    eventSource.onerror = () => { eventSource.close(); setIsTyping(false) }
   }
+
 
   const handleAddSuggestion = async (itemId: string) => {
     try {

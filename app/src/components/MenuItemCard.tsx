@@ -29,8 +29,29 @@ export function MenuItemCard({
   const isSpicy = tags.includes('spicy')
   const isVeg = tags.includes('veg')
 
-  // Use the DB imageUrl which is now a real Unsplash URL from seed
-  const imgSrc = imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&q=80'
+  // Smart image lookup - covers Indian food items that might not have DB images
+  function getItemImage(imageUrl?: string, itemName?: string): string {
+    if (imageUrl && !imageUrl.includes('placehold.co') && imageUrl.startsWith('http')) return imageUrl
+    const txt = (itemName || '').toLowerCase()
+    if (txt.includes('idli') || txt.includes('idly')) return 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=600&q=80'
+    if (txt.includes('dosa') || txt.includes('uttapam')) return 'https://images.unsplash.com/photo-1630383249896-424e482df921?auto=format&fit=crop&w=600&q=80'
+    if (txt.includes('sambar')) return 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=600&q=80'
+    if (txt.includes('vada') || txt.includes('medu')) return 'https://images.unsplash.com/photo-1567188040759-fb8a883dc6d6?auto=format&fit=crop&w=600&q=80'
+    if (txt.includes('gulab') || txt.includes('jamun')) return 'https://images.unsplash.com/photo-1666789826285-7cab1e40ffbb?auto=format&fit=crop&w=600&q=80'
+    if (txt.includes('halwa') || txt.includes('kheer') || txt.includes('kulfi')) return 'https://images.unsplash.com/photo-1551024601-bec78aea704b?auto=format&fit=crop&w=600&q=80'
+    if (txt.includes('biryani') || txt.includes('pulao')) return 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&w=600&q=80'
+    if (txt.includes('paneer') || txt.includes('makhani')) return 'https://images.unsplash.com/photo-1567188040759-fb8a883dc6d6?auto=format&fit=crop&w=600&q=80'
+    if (txt.includes('chicken') || txt.includes('tikka')) return 'https://images.unsplash.com/photo-1599487405270-81781229f338?auto=format&fit=crop&w=600&q=80'
+    if (txt.includes('mutton') || txt.includes('lamb') || txt.includes('rogan')) return 'https://images.unsplash.com/photo-1603360946369-dc9bb6258143?auto=format&fit=crop&w=600&q=80'
+    if (txt.includes('fish') || txt.includes('prawn') || txt.includes('seafood')) return 'https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?auto=format&fit=crop&w=600&q=80'
+    if (txt.includes('dal') || txt.includes('tadka')) return 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=600&q=80'
+    if (txt.includes('samosa') || txt.includes('pakora') || txt.includes('chaat')) return 'https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=600&q=80'
+    if (txt.includes('naan') || txt.includes('roti') || txt.includes('paratha')) return 'https://images.unsplash.com/photo-1610975989137-6e5d8f17e6a2?auto=format&fit=crop&w=600&q=80'
+    if (txt.includes('lassi') || txt.includes('chai') || txt.includes('coffee')) return 'https://images.unsplash.com/photo-1544145945-f90425340c7e?auto=format&fit=crop&w=600&q=80'
+    return 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&q=80'
+  }
+
+  const imgSrc = getItemImage(imageUrl, name)
 
   return (
     <div
