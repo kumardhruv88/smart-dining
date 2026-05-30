@@ -9,23 +9,29 @@ export function CartDrawer() {
   const currentUser = typeof window !== 'undefined' ? (sessionStorage.getItem('displayName') || 'User') : 'User'
 
   const handleQtyChange = async (itemId: string, newQty: number) => {
+    const storeState = useAppStore.getState()
+    const originalCart = storeState.cartItems
+    const originalTotal = storeState.cartTotal
+    const originalGst = storeState.cartGst
+
     if (newQty <= 0) {
-      // Optimistic update
-      useAppStore.getState().removeCartItem(itemId)
-      try {
+      storeState.removeCartItem(itemId)
+      const doApi = async () => {
         const res = await fetch(`/api/session/${sessionId}/cart/${itemId}`, {
           method: 'DELETE',
-          headers: {
-            'x-display-name': encodeURIComponent(currentUser)
-          }
+          headers: { 'x-display-name': encodeURIComponent(currentUser) }
         })
-        if (res.ok) {
-          const data = await res.json()
-          if (data.cart) useAppStore.getState().setCart(data.cart.items, data.cart.total, data.cart.gst)
-        }
-      } catch {}
+        if (!res.ok) throw new Error('API failed')
+        const data = await res.json()
+        if (data.cart) useAppStore.getState().setCart(data.cart.items, data.cart.total, data.cart.gst)
+      }
+      doApi().catch(() => storeState.setCart(originalCart, originalTotal, originalGst))
     } else if (sessionId) {
-      try {
+      const updatedCart = originalCart.map((ci: any) => ci.menuItem.id === itemId || ci.id === itemId ? { ...ci, quantity: newQty } : ci)
+      const newTotal = updatedCart.reduce((acc, ci) => acc + (ci.menuItem?.price || 0) * ci.quantity, 0)
+      storeState.setCart(updatedCart, newTotal, newTotal * 0.05)
+
+      const doApi = async () => {
         const res = await fetch(`/api/session/${sessionId}/cart/${itemId}`, {
           method: 'PATCH',
           headers: { 
@@ -34,11 +40,11 @@ export function CartDrawer() {
           },
           body: JSON.stringify({ quantity: newQty }),
         })
-        if (res.ok) {
-          const data = await res.json()
-          if (data.cart) useAppStore.getState().setCart(data.cart.items, data.cart.total, data.cart.gst)
-        }
-      } catch {}
+        if (!res.ok) throw new Error('API failed')
+        const data = await res.json()
+        if (data.cart) useAppStore.getState().setCart(data.cart.items, data.cart.total, data.cart.gst)
+      }
+      doApi().catch(() => storeState.setCart(originalCart, originalTotal, originalGst))
     }
   }
 

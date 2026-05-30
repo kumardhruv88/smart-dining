@@ -16,10 +16,9 @@ export function ChatButton() {
       style={{
         position: 'fixed',
         bottom: '24px',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        width: '64px',
-        height: '64px',
+        right: '24px',
+        width: '56px',
+        height: '56px',
         borderRadius: '50%',
         background: '#E8650A',
         border: 'none',
@@ -34,9 +33,9 @@ export function ChatButton() {
     >
       <style dangerouslySetInnerHTML={{__html: `
         @keyframes subtlePulse {
-          0% { transform: translateX(-50%) scale(1); box-shadow: 0 4px 20px rgba(232,101,10,0.4); }
-          50% { transform: translateX(-50%) scale(1.05); box-shadow: 0 4px 25px rgba(232,101,10,0.7); }
-          100% { transform: translateX(-50%) scale(1); box-shadow: 0 4px 20px rgba(232,101,10,0.4); }
+          0% { transform: scale(1); box-shadow: 0 4px 20px rgba(232,101,10,0.4); }
+          50% { transform: scale(1.05); box-shadow: 0 4px 25px rgba(232,101,10,0.7); }
+          100% { transform: scale(1); box-shadow: 0 4px 20px rgba(232,101,10,0.4); }
         }
       `}} />
 

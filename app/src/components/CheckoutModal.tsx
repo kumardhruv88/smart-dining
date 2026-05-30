@@ -76,8 +76,16 @@ export function CheckoutModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
       setPhone('')
       setOtp(['', '', '', '', '', ''])
       setErrorMsg('')
+
+      if (sessionId) {
+        fetch(`/api/session/${sessionId}/flow`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ flow: 'traditional' })
+        }).catch(() => {})
+      }
     }
-  }, [isOpen])
+  }, [isOpen, sessionId])
 
   useEffect(() => {
     if (step === 2 && countdown > 0) {

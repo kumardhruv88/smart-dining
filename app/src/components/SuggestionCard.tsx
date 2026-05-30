@@ -72,11 +72,11 @@ export function SuggestionCard({ itemId, name, price, reason, imageUrl, onAdd }:
         background: '#FFFFFF', 
         border: '1px solid #E8DCC8',
         borderRadius: '12px',
-        padding: '8px 10px',
+        padding: '10px',
         display: 'flex',
-        alignItems: 'center',
+        flexDirection: 'column',
         gap: '8px',
-        width: '180px',
+        width: '160px',
         flexShrink: 0,
         marginRight: '8px',
         transition: 'all 0.2s'
@@ -90,50 +90,46 @@ export function SuggestionCard({ itemId, name, price, reason, imageUrl, onAdd }:
         (e.currentTarget as HTMLDivElement).style.boxShadow = 'none';
       }}
     >
-      <div style={{ width: '44px', height: '44px', borderRadius: '8px', border: '1px solid #E8DCC8', flexShrink: 0, overflow: 'hidden', background: '#FAF7F2' }}>
+      <div style={{ width: '100%', height: '90px', borderRadius: '8px', border: '1px solid #E8DCC8', flexShrink: 0, overflow: 'hidden', background: '#FAF7F2' }}>
         {getRealImageUrl(imageUrl, name) ? (
           <img src={getRealImageUrl(imageUrl, name)} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
-          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', color: '#B8A898' }}>No Img</div>
+          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: '#B8A898' }}>No Img</div>
         )}
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
-        <h4 style={{ color: '#2D1810', fontSize: '12px', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', margin: '0 0 2px 0', fontFamily: 'var(--font-sans)' }}>
+        <h4 style={{ color: '#2D1810', fontSize: '13px', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', margin: '0 0 2px 0', fontFamily: 'var(--font-sans)' }}>
           {name}
         </h4>
-        <p style={{ color: '#8B7355', fontSize: '10px', fontStyle: 'italic', margin: '0 0 4px 0', lineHeight: 1.2, fontFamily: 'var(--font-sans)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          &quot;{reason}&quot;
-        </p>
-        <span style={{ color: '#E8650A', fontSize: '12px', fontWeight: 700, fontFamily: 'var(--font-sans)' }}>₹{price}</span>
+        <span style={{ color: '#E8650A', fontSize: '13px', fontWeight: 700, fontFamily: 'var(--font-sans)', marginBottom: '8px' }}>₹{price}</span>
+        
+        <button
+          onClick={handleAdd}
+          disabled={added}
+          style={{
+            background: added ? '#E8DCC8' : '#E8650A',
+            color: added ? '#8B7355' : 'white',
+            fontSize: '12px',
+            padding: '6px 0',
+            width: '100%',
+            borderRadius: '6px',
+            border: 'none',
+            cursor: added ? 'default' : 'pointer',
+            fontWeight: 600,
+            fontFamily: 'var(--font-sans)',
+            transition: 'all 0.2s',
+          }}
+          onMouseEnter={(e) => {
+            if (!added) (e.currentTarget as HTMLButtonElement).style.background = '#D4580A'
+          }}
+          onMouseLeave={(e) => {
+            if (!added) (e.currentTarget as HTMLButtonElement).style.background = '#E8650A'
+          }}
+        >
+          {added ? 'Added' : 'Add to Cart'}
+        </button>
       </div>
-
-      <button
-        onClick={handleAdd}
-        disabled={added}
-        style={{
-          background: added ? '#E8DCC8' : '#E8650A',
-          color: added ? '#8B7355' : 'white',
-          fontSize: '10px',
-          padding: '4px 8px',
-          borderRadius: '6px',
-          border: 'none',
-          whiteSpace: 'nowrap',
-          cursor: added ? 'default' : 'pointer',
-          fontWeight: 600,
-          fontFamily: 'var(--font-sans)',
-          transition: 'all 0.2s',
-          flexShrink: 0
-        }}
-        onMouseEnter={(e) => {
-          if (!added) (e.currentTarget as HTMLButtonElement).style.background = '#D4580A'
-        }}
-        onMouseLeave={(e) => {
-          if (!added) (e.currentTarget as HTMLButtonElement).style.background = '#E8650A'
-        }}
-      >
-        {added ? 'Added' : 'Add'}
-      </button>
     </div>
   )
 }

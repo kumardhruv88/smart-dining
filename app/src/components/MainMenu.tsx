@@ -90,11 +90,15 @@ export function MainMenu() {
       })
   }, [])
 
-  const handleAddItem = async (item: CarouselMenuItem) => {
-    const displayName = sessionStorage.getItem('displayName') || 'User'
-    addCartItem({
+  const handleAddItem = async (item: any) => {
+    const storeState = useAppStore.getState()
+    const originalCart = storeState.cartItems
+    const originalTotal = storeState.cartTotal
+    const originalGst = storeState.cartGst
+
+    storeState.addCartItem({
       quantity: 1,
-      addedBy: displayName,
+      addedBy: typeof window !== 'undefined' ? (sessionStorage.getItem('displayName') || 'User') : 'User',
       menuItem: {
         id: item.id,
         name: item.name,
@@ -105,23 +109,21 @@ export function MainMenu() {
     })
 
     if (sessionId) {
-      try {
+      const doApi = async () => {
         const displayName = sessionStorage.getItem('displayName') || 'User'
         const res = await fetch(`/api/session/${sessionId}/cart`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ menuItemId: item.id, quantity: 1, addedBy: displayName }),
         })
+        if (!res.ok) throw new Error('API failed')
         const data = await res.json()
         if (data.cart) {
           useAppStore.getState().setCart(data.cart.items, data.cart.total, data.cart.gst)
         }
 
-        const updatedCartItems = data.cart ? data.cart.items : [...cartItems, { 
-          quantity: 1, 
-          menuItem: { id: item.id, name: item.name, price: item.price, category: item.category, tags: item.tags }
-        }]
-        const cartTotal = data.cart ? data.cart.total : updatedCartItems.reduce((s: number, i: any) => s + (i.menuItem?.price || 0) * i.quantity, 0)
+        const updatedCartItems = data.cart ? data.cart.items : useAppStore.getState().cartItems
+        const cartTotal = data.cart ? data.cart.total : useAppStore.getState().cartTotal
 
         const upsellRes = await fetch('/api/upsell-check', {
           method: 'POST',
@@ -141,20 +143,33 @@ export function MainMenu() {
             useAppStore.getState().setUpsell(upsellData.suggestion)
           }
         }
-      } catch (err) {
-        console.error(err)
       }
+      doApi().catch(err => {
+        console.error(err)
+        storeState.setCart(originalCart, originalTotal, originalGst)
+      })
     }
   }
 
   const handleRemoveItem = async (id: string) => {
-    const item = cartItems.find((i: any) => i.menuItem?.id === id)
+    const storeState = useAppStore.getState()
+    const originalCart = storeState.cartItems
+    const originalTotal = storeState.cartTotal
+    const originalGst = storeState.cartGst
+
+    const item = storeState.cartItems.find((i: any) => i.menuItem?.id === id)
     if (item) {
-      removeCartItem(id)
+      storeState.removeCartItem(id)
       if (sessionId && item.menuItem?.id) {
-        try {
-          await fetch(`/api/session/${sessionId}/cart/${item.menuItem.id}`, { method: 'DELETE' })
-        } catch {}
+        const doApi = async () => {
+          const res = await fetch(`/api/session/${sessionId}/cart/${item.menuItem.id}`, { method: 'DELETE' })
+          if (!res.ok) throw new Error('API failed')
+          const data = await res.json()
+          if (data.cart) useAppStore.getState().setCart(data.cart.items, data.cart.total, data.cart.gst)
+        }
+        doApi().catch(err => {
+          storeState.setCart(originalCart, originalTotal, originalGst)
+        })
       }
     }
   }
