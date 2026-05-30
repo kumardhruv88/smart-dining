@@ -52,14 +52,14 @@ interface SuggestionCardProps {
   price: number
   reason: string
   imageUrl?: string
-  onAdd: (itemId: string) => Promise<boolean>
+  onAdd: (item: { itemId: string, name: string, price: number, imageUrl?: string }) => Promise<boolean>
 }
 
 export function SuggestionCard({ itemId, name, price, reason, imageUrl, onAdd }: SuggestionCardProps) {
   const [added, setAdded] = useState(false)
 
   const handleAdd = async () => {
-    const success = await onAdd(itemId)
+    const success = await onAdd({ itemId, name, price, imageUrl })
     if (success) {
       setAdded(true)
       setTimeout(() => setAdded(false), 2000)

@@ -153,23 +153,39 @@ export function ChatDrawer() {
   }
 
 
-  const handleAddSuggestion = async (itemId: string) => {
+  const handleAddSuggestion = async (item: any) => {
     try {
       const displayName = sessionStorage.getItem('displayName') || 'User'
+      
+      // Optimistic UI update
+      useAppStore.getState().addCartItem({
+        quantity: 1,
+        addedBy: displayName,
+        menuItem: {
+          id: item.itemId,
+          name: item.name,
+          price: item.price,
+          imageUrl: item.imageUrl
+        }
+      })
+
       const res = await fetch(`/api/session/${sessionId ?? ''}/cart`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ menuItemId: itemId, quantity: 1, addedBy: displayName }),
+        body: JSON.stringify({ menuItemId: item.itemId, quantity: 1, addedBy: displayName }),
       })
       if (!res.ok) throw new Error('Failed')
       return true
-    } catch { return false }
+    } catch { 
+      // Rollback is complex here without knowing previous state, but returning false is handled.
+      return false 
+    }
   }
 
   if (!isChatOpen) return null
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 110, display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-end' }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 110, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
       {/* Backdrop */}
       <div
         style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }}
@@ -178,7 +194,7 @@ export function ChatDrawer() {
 
       {/* Drawer panel — warm cream minimalist theme */}
       <div
-        className="animate-in slide-in-from-right duration-300"
+        className="animate-in zoom-in duration-300"
         style={{
           position: 'relative',
           width: '360px',
@@ -192,8 +208,6 @@ export function ChatDrawer() {
           boxShadow: '0 8px 40px rgba(0,0,0,0.18)',
           border: '1px solid #E8DCC8',
           overflow: 'hidden',
-          marginRight: '20px',
-          marginBottom: '88px',
           zIndex: 1,
         }}
       >

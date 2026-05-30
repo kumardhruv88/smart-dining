@@ -10,6 +10,8 @@ export function CartDrawer() {
 
   const handleQtyChange = async (itemId: string, newQty: number) => {
     if (newQty <= 0) {
+      // Optimistic update
+      useAppStore.getState().removeCartItem(itemId)
       try {
         const res = await fetch(`/api/session/${sessionId}/cart/${itemId}`, {
           method: 'DELETE',

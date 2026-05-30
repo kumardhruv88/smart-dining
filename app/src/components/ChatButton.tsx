@@ -12,12 +12,14 @@ export function ChatButton() {
   return (
     <button
       onClick={handleClick}
+      className="zara-chat-btn"
       style={{
         position: 'fixed',
         bottom: '24px',
-        right: '24px',
-        width: '56px',
-        height: '56px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        width: '64px',
+        height: '64px',
         borderRadius: '50%',
         background: '#E8650A',
         border: 'none',
@@ -26,15 +28,23 @@ export function ChatButton() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        boxShadow: '0 4px 20px rgba(232,101,10,0.4)',
-        animation: unreadCount > 0 ? 'pulseGlow 2s ease-in-out infinite' : undefined,
+        boxShadow: '0 4px 20px rgba(232,101,10,0.6)',
+        animation: unreadCount > 0 ? 'pulseGlow 2s ease-in-out infinite' : 'subtlePulse 3s ease-in-out infinite',
       }}
     >
+      <style dangerouslySetInnerHTML={{__html: `
+        @keyframes subtlePulse {
+          0% { transform: translateX(-50%) scale(1); box-shadow: 0 4px 20px rgba(232,101,10,0.4); }
+          50% { transform: translateX(-50%) scale(1.05); box-shadow: 0 4px 25px rgba(232,101,10,0.7); }
+          100% { transform: translateX(-50%) scale(1); box-shadow: 0 4px 20px rgba(232,101,10,0.4); }
+        }
+      `}} />
+
       {/* Rotating orbit ring */}
       <div style={{
         position: 'absolute',
-        width: '56px',
-        height: '56px',
+        width: '64px',
+        height: '64px',
         borderRadius: '50%',
         border: '2px solid rgba(255,255,255,0.3)',
         animation: 'orbitSpin 3s linear infinite',
@@ -56,8 +66,8 @@ export function ChatButton() {
       {/* Second orbit at different angle */}
       <div style={{
         position: 'absolute',
-        width: '56px',
-        height: '56px',
+        width: '64px',
+        height: '64px',
         borderRadius: '50%',
         border: '1.5px solid rgba(255,255,255,0.15)',
         animation: 'orbitSpin 5s linear infinite reverse',
@@ -77,7 +87,7 @@ export function ChatButton() {
       {/* Z letter in center */}
       <span style={{
         color: 'white',
-        fontSize: '20px',
+        fontSize: '28px',
         fontWeight: '700',
         fontFamily: 'serif',
         zIndex: 2,
@@ -90,12 +100,12 @@ export function ChatButton() {
           position: 'absolute',
           top: '0px',
           right: '0px',
-          width: '16px',
-          height: '16px',
+          width: '20px',
+          height: '20px',
           borderRadius: '50%',
           background: '#ef4444',
           border: '2px solid white',
-          fontSize: '9px',
+          fontSize: '11px',
           color: 'white',
           display: 'flex',
           alignItems: 'center',
