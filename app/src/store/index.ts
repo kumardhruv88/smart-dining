@@ -84,10 +84,10 @@ export const useAppStore = create<AppState>((set) => ({
     }
   }),
   removeCartItem: (id) => set((state) => {
-    const item = state.cartItems.find(i => i.menuItem.id === id)
+    const item = state.cartItems.find(i => i.id === id || i.menuItem.id === id)
     if (!item) return state
     return {
-      cartItems: state.cartItems.filter(i => i.menuItem.id !== id),
+      cartItems: state.cartItems.filter(i => i.id !== id && i.menuItem.id !== id),
       cartTotal: state.cartTotal - (item.menuItem.price * item.quantity)
     }
   }),
