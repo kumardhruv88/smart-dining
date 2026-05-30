@@ -132,13 +132,14 @@ export async function POST(
       total,
     };
 
-    const aiServiceUrl = process.env.NEXT_PUBLIC_AI_SERVICE_URL || 'https://aryan012234-smart-dining-backend.hf.space';
-    if (!aiServiceUrl) {
-      return NextResponse.json(
-        { error: "AI service URL is not configured." },
-        { status: 500 }
-      );
-    }
+    // Resolve AI service URL — never use localhost on production (Vercel serverless can't reach localhost)
+    const configuredUrl = process.env.NEXT_PUBLIC_AI_SERVICE_URL || '';
+    const isLocalhost = configuredUrl.includes('localhost') || configuredUrl.includes('127.0.0.1') || configuredUrl.includes('api.example.com');
+    const aiServiceUrl = (!configuredUrl || isLocalhost)
+      ? 'https://aryan012234-smart-dining-backend.hf.space'
+      : configuredUrl;
+
+    console.log("[AI Chat] Using backend URL:", aiServiceUrl);
 
     // Emit user's message
     emitAiMessage(session.tableId, {

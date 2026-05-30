@@ -43,8 +43,8 @@ app = FastAPI(title="Smart Dining AI Microservice", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[NEXT_PUBLIC_APP_URL],
-    allow_credentials=True,
+    allow_origins=["*"],  # Allow all origins for Vercel/HF cross-domain requests
+    allow_credentials=False,  # Must be False when allow_origins=["*"]
     allow_methods=["*"],
     allow_headers=["*"],
 )

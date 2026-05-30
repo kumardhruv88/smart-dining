@@ -3,12 +3,11 @@ import { type NextRequest, NextResponse } from "next/server";
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     const body = await req.json();
-    const aiServiceUrl = process.env.NEXT_PUBLIC_AI_SERVICE_URL || 'https://aryan012234-smart-dining-backend.hf.space';
-
-    if (!aiServiceUrl) {
-      console.warn("AI service URL not configured.");
-      return NextResponse.json({ suggestion: null });
-    }
+    const configuredUrl = process.env.NEXT_PUBLIC_AI_SERVICE_URL || '';
+    const isLocalhost = configuredUrl.includes('localhost') || configuredUrl.includes('127.0.0.1') || configuredUrl.includes('api.example.com');
+    const aiServiceUrl = (!configuredUrl || isLocalhost)
+      ? 'https://aryan012234-smart-dining-backend.hf.space'
+      : configuredUrl;
 
     const response = await fetch(`${aiServiceUrl}/upsell-check`, {
       method: "POST",

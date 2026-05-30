@@ -91,6 +91,13 @@ export function MenuItemCard({
           }}
           className="group-hover:scale-105"
           loading="lazy"
+          onError={(e) => {
+            const img = e.currentTarget as HTMLImageElement
+            // Try smart fallback on error, then ultimate fallback
+            if (!img.src.includes('photo-1546069901')) {
+              img.src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&q=80'
+            }
+          }}
         />
 
         {/* Badges */}

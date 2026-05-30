@@ -54,16 +54,59 @@ export function AiPickSection({ sessionId, timeOfDay, onAdd, tableId: propTableI
   const { preferences, tableId: storeTableId } = useAppStore()
   const tableId = propTableId || storeTableId || 'T1'
 
-  // Fallback: pick top items from allItems when AI is unavailable
+  // Smart time-aware fallback picks from menu items
   const getFallbackSuggestions = (): AiSuggestion[] => {
-    const timeMessages: Record<string, string> = {
-      breakfast: 'Perfect morning pick!',
-      lunch: 'Great lunch choice!',
-      evening: 'Perfect evening snack!',
-      dinner: 'Ideal dinner choice!',
+    const timeReasonMap: Record<string, string> = {
+      breakfast: 'Great for your morning!',
+      lunch: 'Perfect lunch choice!',
+      evening: 'Ideal evening snack!',
+      dinner: 'Tonight\'s top pick!',
     }
-    const reason = timeMessages[timeOfDay] || 'Chef\'s recommendation!'
-    return allItems.slice(0, 3).map((item: any) => ({
+    const reason = timeReasonMap[timeOfDay] || 'Chef\'s recommendation!'
+
+    // Category/tag preferences by time of day
+    const timePrefs: Record<string, { categories: string[], tags: string[] }> = {
+      breakfast: {
+        categories: ['Beverages Hot', 'Veg Starters', 'Breads & Rice'],
+        tags: ['breakfast', 'veg', 'light'],
+      },
+      lunch: {
+        categories: ['Mains Veg', 'Mains Non-Veg', 'Breads & Rice', 'Combos & Deals'],
+        tags: ['bestseller', 'lunch', 'filling'],
+      },
+      evening: {
+        categories: ['Veg Starters', 'Non-Veg Starters', 'Beverages Cold', 'Beverages Hot'],
+        tags: ['light', 'snack', 'evening'],
+      },
+      dinner: {
+        categories: ['Mains Non-Veg', 'Mains Veg', 'Combos & Deals', 'Non-Veg Starters'],
+        tags: ['bestseller', 'dinner', 'special'],
+      },
+    }
+
+    const prefs = timePrefs[timeOfDay] || timePrefs['lunch'] || { categories: [], tags: [] }
+
+    // Try to filter by category first
+    let filtered = allItems.filter((item: any) =>
+      prefs.categories.some(cat =>
+        item.category?.toLowerCase().includes(cat.toLowerCase())
+      )
+    )
+
+    // If not enough, also try by tags
+    if (filtered.length < 3) {
+      const tagFiltered = allItems.filter((item: any) =>
+        prefs.tags.some(tag => item.tags?.includes(tag))
+      )
+      // Merge, dedup
+      const ids = new Set(filtered.map((i: any) => i.id))
+      tagFiltered.forEach((i: any) => { if (!ids.has(i.id)) filtered.push(i) })
+    }
+
+    // Fall back to all items if still not enough
+    if (filtered.length < 3) filtered = allItems
+
+    return filtered.slice(0, 3).map((item: any) => ({
       itemId: item.id,
       name: item.name,
       price: item.price,

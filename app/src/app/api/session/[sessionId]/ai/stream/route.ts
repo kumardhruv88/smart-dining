@@ -69,13 +69,12 @@ export async function GET(
     // Sanitize
     const cleanMessage = message.replace(/<[^>]*>/g, "").slice(0, 500);
 
-    const aiServiceUrl = process.env.NEXT_PUBLIC_AI_SERVICE_URL || 'https://aryan012234-smart-dining-backend.hf.space';
-    if (!aiServiceUrl) {
-      return NextResponse.json(
-        { error: "AI service URL is not configured." },
-        { status: 500 }
-      );
-    }
+    // Resolve AI service URL — never use localhost on production
+    const configuredUrl = process.env.NEXT_PUBLIC_AI_SERVICE_URL || '';
+    const isLocalhost = configuredUrl.includes('localhost') || configuredUrl.includes('127.0.0.1') || configuredUrl.includes('api.example.com');
+    const aiServiceUrl = (!configuredUrl || isLocalhost)
+      ? 'https://aryan012234-smart-dining-backend.hf.space'
+      : configuredUrl;
 
     // Build cart summary
     const cartItems = await getCart(sessionId);
