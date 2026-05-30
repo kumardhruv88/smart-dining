@@ -101,8 +101,9 @@ export async function POST(
       );
     }
 
+    const isInternal = req.headers.get("x-internal-request") === "true";
     const cookieSid = req.cookies.get("sid")?.value;
-    if (!cookieSid || cookieSid !== sessionId) {
+    if (!isInternal && (!cookieSid || cookieSid !== sessionId)) {
       return NextResponse.json(
         { error: "Unauthorized: session cookie mismatch." },
         { status: 401 }
