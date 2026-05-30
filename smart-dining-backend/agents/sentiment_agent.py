@@ -21,7 +21,7 @@ async def monitor_sentiment(session_id: str, message: str) -> None:
     if len(message) <= 8:
         return
 
-    llm = ChatGroq(model=GROQ_MODEL, api_key=GROQ_API_KEY, temperature=0.0, max_tokens=60)
+    llm = ChatGroq(model=GROQ_MODEL, api_key=GROQ_API_KEY, temperature=0.2, max_tokens=150)
     messages = [
         SystemMessage(content=SENTIMENT_SYSTEM_PROMPT),
         HumanMessage(content=message)

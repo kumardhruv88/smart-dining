@@ -22,6 +22,7 @@ class ChatResponse(BaseModel):
     action: Optional[str] = None  # "add_to_cart", "show_checkout", etc.
     agentUsed: str = ""
     upsellSuggestion: Optional[str] = None
+    redirectUrl: Optional[str] = None
 
 class NLUResult(BaseModel):
     intent: str  # GREET|RECOMMEND|ADD_ITEM|UPSELL_CHECK|GROUP_MERGE|CHECKOUT|FALLBACK

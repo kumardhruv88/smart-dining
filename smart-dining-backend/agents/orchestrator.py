@@ -85,134 +85,152 @@ async def run_orchestrator(req: ChatRequest) -> ChatResponse:
     # Merge NLU preferences with session preferences (session preferences take lower priority to current turn)
     merged_prefs = {**session_prefs, **nlu_result.preferences}
     
-    # 4. Route by intent
+    # 4. Do not mutate req.message here, pass working_memory to agents that need it.
+    
+    # Route by intent
     response: ChatResponse = None
 
     if nlu_result.intent == "GREET" and not working_memory:
         response = await run_greeter(req.message, nlu_result.language_detected)
         
-    elif nlu_result.intent == "RECOMMEND":
-        response = await run_recommendation(req.message, req.timeOfDay, merged_prefs, cart_list)
+    elif nlu_result.intent in ("RECOMMEND", "FALLBACK"):
+        response = await run_recommendation(req.message, req.timeOfDay, merged_prefs, cart_list, nlu_result.language_detected, working_memory)
         
     elif nlu_result.intent == "ADD_ITEM":
-        from tools.cart_tools import add_to_cart_by_name
-        from tools.menu_tools import MENU_CACHE
+        from tools.cart_tools import add_to_cart
+        from tools.menu_tools import search_menu
         item_name = nlu_result.entities.get("item_name")
         if not item_name:
-            cleaned_msg = req.message.lower()
-            for w in ["add", "to", "my", "cart", "please", "put", "zara", "in"]:
-                cleaned_msg = cleaned_msg.replace(w, "")
-            item_name = cleaned_msg.strip()
+            item_name = req.message
             
-        menu_items = MENU_CACHE
-        item = next(
-            (i for i in menu_items 
-             if item_name.lower() in i.name.lower()),
-            None
-        )
-        
-        already_in_cart = False
-        if item:
-            already_in_cart = any(
-                str(c_item.get("itemId")) == str(item.id) or 
-                str(c_item.get("menuItemId")) == str(item.id) or
-                (c_item.get("name") and item.name.lower() in c_item.get("name").lower())
-                for c_item in cart_list
-            )
+        results = search_menu(item_name, {})
+        if results:
+            best_match = results[0]
+            # Add to cart
+            await add_to_cart(req.sessionId, best_match.id, 1)
             
-        if already_in_cart:
-            add_item_result = {
-                "success": True,
-                "message": f"{item.name} is already in your cart.",
-                "item": item
-            }
-        else:
-            add_item_result = await add_to_cart_by_name(
-                item_name,
-                req.sessionId,
-                req.tableId
-            )
-            
-        upsell_msg = None
-        if add_item_result.get("success") and add_item_result.get("item"):
-            added_item = add_item_result["item"]
-            last_item = {"id": added_item.id, "name": added_item.name}
-            try:
-                upsell_msg = await check_upsell_triggers(
-                    cart_list,
-                    cart_total,
-                    req.timeOfDay,
-                    last_added_item=last_item
-                )
-            except Exception as e:
-                logger.error(f"Error checking upsell triggers in orchestrator: {e}")
+            # Check if this ADD_ITEM intent also had a checkout phrase
+            if nlu_result.entities.get("also_checkout"):
+                # Redirect to CHECKOUT flow
+                nlu_result.intent = "CHECKOUT"
+                # Update cart list for CHECKOUT flow
+                req.cartSummary = await SessionMemory.get(req.sessionId) 
+                cart_list.append({"itemId": best_match.id, "name": best_match.name, "price": best_match.price, "quantity": 1})
                 
-        zara_msg = await generate_zara_response(
-            intent="ADD_ITEM",
-            user_message=req.message,
-            language=nlu_result.language_detected,
-            context_data={
-                "item_name": item.name if item else item_name,
-                "already_in_cart": already_in_cart,
-                "upsell_msg": upsell_msg["message"] if (upsell_msg and isinstance(upsell_msg, dict)) else (upsell_msg or "")
-            },
-            should_rephrase=should_rephrase
-        )
-        
-        if not zara_msg:
-            if already_in_cart:
-                zara_msg = f"{item.name} is already in your cart. Would you like me to place the order now?"
+                # Pre-fill working memory for CHECKOUT response so Zara knows an item was just added
+                working_memory = f"Assistant just added {best_match.name} to the cart. " + working_memory
             else:
-                zara_msg = add_item_result["message"] + "\n\nWould you like me to place the order now?"
-                
-        response = ChatResponse(
-            message=zara_msg,
-            suggestions=[],
-            action="cart_updated" if (add_item_result["success"] and not already_in_cart) else None,
-            agentUsed="orchestrator"
-        )
-                
-    elif nlu_result.intent == "UPSELL_CHECK":
-        upsell_msg = await check_upsell_triggers(cart_list, cart_total, req.timeOfDay, intent=nlu_result.intent)
-        if isinstance(upsell_msg, dict):
-            response = ChatResponse(
-                message=upsell_msg.get("message") or "Is there anything else I can get for you?",
-                action=None,
-                agentUsed="upsell_agent",
-                upsellSuggestion=json.dumps(upsell_msg)
-            )
+                zara_msg = await generate_zara_response(
+                    intent="ADD_ITEM",
+                    user_message=req.message,
+                    language=nlu_result.language_detected,
+                    context_data={"item_added": best_match.name},
+                    should_rephrase=True,
+                    working_memory=working_memory
+                )
+                if not zara_msg:
+                    zara_msg = f"I've added {best_match.name} to your cart!"
+                response = ChatResponse(
+                    message=zara_msg,
+                    suggestions=[],
+                    action="cart_updated",
+                    agentUsed="orchestrator"
+                )
         else:
-            response = ChatResponse(
-                message=upsell_msg or "Is there anything else I can get for you?",
-                action=None,
-                agentUsed="upsell_agent"
-            )
+            response = await run_recommendation(item_name, req.timeOfDay, merged_prefs, cart_list, nlu_result.language_detected, working_memory)
+            response.message = f"We don't have '{item_name}' but here's something similar: " + response.message
+            
+    elif nlu_result.intent == "UPSELL_CHECK":
+        if cart_list:
+            last_item_id = cart_list[-1].get("itemId") or cart_list[-1].get("menuItemId")
+            from tools.menu_tools import get_complementary
+            comps = get_complementary(last_item_id)
+            if comps:
+                from models.schemas import Suggestion
+                response = ChatResponse(
+                    message="Here are some things that go well with your order:",
+                    suggestions=[
+                        Suggestion(itemId=c.id, name=c.name, price=c.price, reason="Pairs perfectly!", imageUrl=getattr(c, "imageUrl", ""))
+                        for c in comps[:3]
+                    ],
+                    action=None,
+                    agentUsed="upsell_agent"
+                )
+            else:
+                response = await run_recommendation("beverages drinks", req.timeOfDay, merged_prefs, cart_list, nlu_result.language_detected, working_memory)
+        else:
+            response = await run_recommendation("beverages drinks", req.timeOfDay, merged_prefs, cart_list, nlu_result.language_detected, working_memory)
         
     elif nlu_result.intent == "GROUP_MERGE":
         group_size = nlu_result.entities.get("group_size", 4)
         response = await run_group_coordinator(req.message, cart_list, group_size)
         
-    elif nlu_result.intent == "CHECKOUT":
-        val_res = await run_order_validation(cart_list)
-        zara_msg = await generate_zara_response(
-            intent="CHECKOUT",
-            user_message=req.message,
-            language=nlu_result.language_detected,
-            context_data={"valid": val_res.get("valid"), "issues": val_res.get("issues", [])},
-            should_rephrase=should_rephrase
-        )
-        if not zara_msg:
+    
+    if nlu_result.intent == "CHECKOUT":
+        order_flow = session_mem.get("order_flow")
+        if order_flow == "traditional":
+            zara_msg = "It looks like you're already checking out in the main menu! Please complete your order there."
+            response = ChatResponse(message=zara_msg, action=None, agentUsed="order_validation_agent")
+        else:
+            await SessionMemory.update(req.sessionId, "order_flow", "chat")
+            val_res = await run_order_validation(cart_list, req.sessionId)
+            
+            cart_summary_text = "\\n".join([
+                f"• {item.get('name')} x{item.get('quantity') or item.get('qty', 1)} — ₹{item.get('price', 0)}" + (" (added from menu)" if item.get('addedBy') and item.get('addedBy') != "Zara" else "")
+                for item in cart_list
+            ])
+            total_price = sum((float(item.get('price', 0)) * (item.get('quantity') or item.get('qty', 1))) for item in cart_list)
+            cart_summary_text += f"\\nTotal: ₹{total_price}"
+
             if val_res.get("valid"):
-                zara_msg = "Your order looks perfect! To place the order, please provide your 10-digit mobile number."
+                phone = session_mem.get("checkout_phone") or session_mem.get("customer_phone")
+                otp_verified = session_mem.get("otp_verified", False)
+                if phone and otp_verified:
+                    from tools.checkout_tools import place_order_via_chat
+                    order_res = await place_order_via_chat(req.sessionId, "Guest", phone, "pre-verified", req.tableId)
+                    order_id = order_res.get('orderId')
+                    redirect_url = order_res.get('redirectUrl', f'/table/{req.tableId}/confirmation?orderId={order_id}')
+                    response = ChatResponse(
+                        message=f"Order placed! Your order ID is #{order_id or 'UNKNOWN'}",
+                        action=f"redirect:{redirect_url}",
+                        agentUsed="checkout_agent"
+                    )
+                elif phone:
+                    from tools.checkout_tools import send_otp_via_chat
+                    res = await send_otp_via_chat(phone)
+                    await SessionMemory.update(req.sessionId, "checkout_phone", phone)
+                    response = ChatResponse(
+                        message=f"Your order looks perfect! I've sent an OTP to {phone}. Please enter it to confirm.",
+                        action=None,
+                        agentUsed="checkout_agent"
+                    )
+                else:
+                    zara_msg = await generate_zara_response(
+                        intent="CHECKOUT",
+                        user_message=req.message,
+                        language=nlu_result.language_detected,
+                        context_data={"valid": True, "issues": [], "cart_summary": cart_summary_text},
+                        should_rephrase=should_rephrase,
+                        working_memory=working_memory
+                    )
+                    if not zara_msg:
+                        zara_msg = f"Before we confirm — here's what's in your order:\\n{cart_summary_text}\\n\\nTo place the order, please provide your 10-digit mobile number."
+                    response = ChatResponse(message=zara_msg, action=None, agentUsed="order_validation_agent")
             else:
-                issues = "\n".join(val_res.get("issues", []))
-                zara_msg = f"There are a few issues with your cart:\n{issues}"
-                
-        response = ChatResponse(
-            message=zara_msg,
-            action=None,
-            agentUsed="order_validation_agent"
-        )
+                issues = "\\n".join(val_res.get("issues", []))
+                zara_msg = await generate_zara_response(
+                    intent="CHECKOUT",
+                    user_message=req.message,
+                    language=nlu_result.language_detected,
+                    context_data={"valid": False, "issues": val_res.get("issues", []), "cart_summary": cart_summary_text},
+                    should_rephrase=should_rephrase,
+                    working_memory=working_memory
+                )
+                response = ChatResponse(
+                    message=zara_msg or f"There are a few issues with your cart:\\n{issues}",
+                    action=None,
+                    agentUsed="order_validation_agent"
+                )
 
     elif nlu_result.intent == "COLLECT_PHONE":
         from tools.checkout_tools import send_otp_via_chat
@@ -259,6 +277,7 @@ async def run_orchestrator(req: ChatRequest) -> ChatResponse:
         else:
             res = await verify_otp_via_chat(phone, otp)
             if res.get("success"):
+                await SessionMemory.update(req.sessionId, "otp_verified", True)
                 order_res = await place_order_via_chat(req.sessionId, "Guest", phone, res.get("token"))
                 zara_msg = await generate_zara_response(
                     intent="VERIFY_OTP",
@@ -291,23 +310,18 @@ async def run_orchestrator(req: ChatRequest) -> ChatResponse:
                 )
             
     else: # FALLBACK
-        llm = ChatGroq(model=GROQ_MODEL, api_key=GROQ_API_KEY, temperature=0.5, max_tokens=200)
-        fallback_prompt = "You are a dining assistant. A user said something off-script or general. Give a polite, helpful response keeping it dining-related."
-        res = await llm.ainvoke([SystemMessage(content=fallback_prompt), HumanMessage(content=req.message)])
-        response = ChatResponse(
-            message=str(res.content).strip(),
-            agentUsed="fallback_agent"
+        # The user instructed that FALLBACK should also be caught and directed to run_recommendation.
+        # But just in case any weird path hits this else statement, we can safely just run_recommendation directly.
+        response = await run_recommendation(
+            message=req.message,
+            time_of_day=req.timeOfDay,
+            preferences=merged_prefs,
+            cart_summary=cart_list,
+            language_detected=nlu_result.language_detected,
+            working_memory=working_memory
         )
 
-    # 5. After response
-    if nlu_result.intent == "ADD_ITEM" and add_item_result and add_item_result.get("success") and add_item_result.get("item"):
-        added_item = add_item_result["item"]
-        last_item = {"id": added_item.id, "name": added_item.name}
-        upsell_msg = await check_upsell_triggers(cart_list, cart_total, req.timeOfDay, last_added_item=last_item)
-        if isinstance(upsell_msg, dict):
-            response.upsellSuggestion = json.dumps(upsell_msg)
-        else:
-            response.upsellSuggestion = upsell_msg
+
 
     asyncio.create_task(update_context(req.sessionId, nlu_result.preferences, nlu_result.language_detected, nlu_result.entities, req.message))
 
@@ -321,7 +335,8 @@ def get_zara_prompt(
     user_message: str,
     language: str,
     context_data: dict,
-    should_rephrase: bool = False
+    should_rephrase: bool = False,
+    working_memory: str = ""
 ) -> tuple[str, str]:
     """
     Generates the system prompt for Zara based on context.
@@ -334,7 +349,7 @@ def get_zara_prompt(
 
     # Construct the prompt based on the intent
     if intent == "ADD_ITEM":
-        item_name = context_data.get("item_name", "the item")
+        item_name = context_data.get("item_added", "the item")
         already_in_cart = context_data.get("already_in_cart", False)
         upsell_msg = context_data.get("upsell_msg", "")
         
@@ -344,21 +359,28 @@ The user wants to order/add the item: "{item_name}".
 
 Context:
 - Is item already in the cart?: {already_in_cart}
+- Next quantity (if already in cart): {context_data.get('next_qty', 2)}
 - User's message: "{user_message}"
 - Language detected: {language}
 - Upsell suggestion to mention: {upsell_msg}
 
 Rules:
 1. DO NOT be robotic. Mirror the user's language (Hinglish, English, or Telugu-English) and conversational style.
-2. If already_in_cart is True: state that the item is already added to the cart, and ask if they want to place the order now.
+2. If already_in_cart is True: state that the item is already added to the cart, and ask "Want to increase quantity to {{next_qty}}?". Do not ask to place the order yet.
 3. If already_in_cart is False: state that you've added the item to their cart, and ask if they want to place the order now or add anything else.
 4. If an upsell suggestion is provided (not empty), weave it in naturally (e.g. "Most people pair it with X. Want to add that too?").
-5. Keep the response brief, conversational, and friendly (max 2 sentences).
-6. Return only the plain conversational message, do not add any JSON or tags.{tone_note}"""
+5. Keep the response brief, conversational, and friendly.
+6. Be concise and natural. Max 2 sentences before showing items.
+7. Do NOT say things like 'I completely understand' or 'I'm here to help' or 'Great choice! By the way...' repeatedly.
+8. Be direct like a friend, not a customer service bot.
+9. If user says 'no' to an upsell, STOP upselling immediately.
+10. Never repeat the same upsell suggestion twice in one session.
+11. Return only the plain conversational message, do not add any JSON or tags.{tone_note}"""
 
     elif intent == "CHECKOUT":
         validation_valid = context_data.get("valid", True)
         validation_issues = context_data.get("issues", [])
+        cart_summary = context_data.get("cart_summary", "")
         
         system_prompt = f"""You are Zara, a warm, witty, and natural dining assistant at Spice Garden.
 Your job is to generate a conversational response to the user wanting to checkout/place their order.
@@ -366,15 +388,22 @@ Your job is to generate a conversational response to the user wanting to checkou
 Context:
 - Is cart valid?: {validation_valid}
 - Issues in cart: {validation_issues}
+- Cart summary:
+{cart_summary}
 - User's message: "{user_message}"
 - Language detected: {language}
+- Recent Conversation Memory: {working_memory}
 
 Rules:
 1. Mirror the user's language (Hinglish, English, or Telugu-English). If they used Hinglish, respond in Hinglish.
-2. If cart is valid: ask them to provide their 10-digit mobile number to receive an OTP and place the order.
-3. If cart is invalid: list the issues politely and guide them to resolve them.
-4. Keep the response brief, warm, and conversational (max 2 sentences).
-5. Return only the plain conversational message, do not add any JSON or tags.{tone_note}"""
+2. Always read the current cart before confirming order. The cart may contain items added by the user directly from the menu AND items added via chat. Treat them all equally. Never ask the user to re-add items already in cart. Summarize the complete cart contents before taking phone number.
+3. If cart is valid: ask them to provide their 10-digit mobile number to receive an OTP and place the order.
+4. If cart is invalid: list the issues politely and guide them to resolve them.
+5. Keep the response brief, warm, and conversational.
+5. Be concise and natural. Max 2 sentences before showing items.
+6. Do NOT say things like 'I completely understand' or 'I'm here to help' or 'Great choice! By the way...' repeatedly.
+7. Be direct like a friend, not a customer service bot.
+8. Return only the plain conversational message, do not add any JSON or tags.{tone_note}"""
 
     elif intent == "COLLECT_PHONE":
         phone = context_data.get("phone", "")
@@ -395,8 +424,11 @@ Rules:
 1. Mirror the user's language (Hinglish, English, or Telugu-English).
 2. If OTP send succeeded: inform them that the OTP has been sent and they should enter the code.
 3. If OTP send failed or phone is invalid: explain the error or ask them to provide a valid 10-digit mobile number.
-4. Keep it brief, warm, and helpful (max 2 sentences).
-5. Return only the plain conversational message, do not add any JSON or tags."""
+4. Keep it brief, warm, and helpful.
+5. Be concise and natural. Max 2 sentences before showing items.
+6. Do NOT say things like 'I completely understand' or 'I'm here to help' or 'Great choice! By the way...' repeatedly.
+7. Be direct like a friend, not a customer service bot.
+8. Return only the plain conversational message, do not add any JSON or tags."""
 
     elif intent == "VERIFY_OTP":
         success = context_data.get("success", False)
@@ -415,8 +447,11 @@ Rules:
 1. Mirror the user's language (Hinglish, English, or Telugu-English).
 2. If verification succeeded: tell them the order is confirmed and they are being redirected.
 3. If verification failed: tell them the OTP is incorrect or expired, and ask them to try again.
-4. Keep it brief, warm, and helpful (max 2 sentences).
-5. Return only the plain conversational message, do not add any JSON or tags."""
+4. Keep it brief, warm, and helpful.
+5. Be concise and natural. Max 2 sentences before showing items.
+6. Do NOT say things like 'I completely understand' or 'I'm here to help' or 'Great choice! By the way...' repeatedly.
+7. Be direct like a friend, not a customer service bot.
+8. Return only the plain conversational message, do not add any JSON or tags."""
 
     else:
         return "", ""
@@ -429,13 +464,14 @@ async def generate_zara_response(
     user_message: str,
     language: str,
     context_data: dict,
-    should_rephrase: bool = False
+    should_rephrase: bool = False,
+    working_memory: str = ""
 ) -> str:
-    system_prompt, _ = get_zara_prompt(intent, user_message, language, context_data, should_rephrase)
+    system_prompt, user_msg = get_zara_prompt(intent, user_message, language, context_data, should_rephrase, working_memory)
     if not system_prompt:
         return ""
         
-    llm = ChatGroq(model=GROQ_MODEL, api_key=GROQ_API_KEY, temperature=0.5, max_tokens=100)
+    llm = ChatGroq(model=GROQ_MODEL, api_key=GROQ_API_KEY, temperature=0.7, max_tokens=150)
     messages = [
         SystemMessage(content=system_prompt),
         HumanMessage(content=user_message)

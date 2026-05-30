@@ -1,9 +1,10 @@
 import httpx
 import logging
 from langchain_community.vectorstores import FAISS
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from config import NEXT_PUBLIC_APP_URL
 from pydantic import BaseModel
+import traceback
 
 logger = logging.getLogger(__name__)
 
@@ -30,18 +31,23 @@ embeddings = HuggingFaceEmbeddings(
 )
 
 def build_vector_store(menu_items: list) -> FAISS:
-    texts = [
-        f"{item['name']}. {item['description']}. Tags: {', '.join(item['tags'])}. Category: {item['category']}"
-        for item in menu_items
-    ]
-    metadatas = [{"id": item["id"], "name": item["name"], "price": float(item["price"]), 
-                  "category": item["category"], "tags": item["tags"], 
-                  "allergens": item.get("allergens", []), "available": item.get("available", True),
-                  "imageUrl": item.get("imageUrl", ""), "description": item["description"]}
-                 for item in menu_items]
-    
-    vs = FAISS.from_texts(texts, embeddings, metadatas=metadatas)
-    return vs
+    try:
+        texts = [
+            f"{item['name']}. {item['description']}. Tags: {', '.join(item['tags'])}. Category: {item['category']}"
+            for item in menu_items
+        ]
+        metadatas = [{"id": item["id"], "name": item["name"], "price": float(item["price"]), 
+                      "category": item["category"], "tags": item["tags"], 
+                      "allergens": item.get("allergens", []), "available": item.get("available", True),
+                      "imageUrl": item.get("imageUrl", ""), "description": item["description"]}
+                     for item in menu_items]
+        
+        vs = FAISS.from_texts(texts, embeddings, metadatas=metadatas)
+        print(f"Indexed {vs.index.ntotal} embeddings")
+        return vs
+    except Exception as e:
+        print("EMBEDDING ERROR:", traceback.format_exc())
+        return None
 
 async def load_menu() -> None:
     global MENU_CACHE, vector_store
@@ -111,14 +117,18 @@ def search_menu(query: str, filters: dict = {}) -> list[MenuItem]:
 
 def get_popular_items(time_of_day: str) -> list[MenuItem]:
     cat_map = {
-        "breakfast": ["Beverages (Hot)"],
-        "lunch": ["Mains (Veg)", "Mains (Non-Veg)"],
-        "evening": ["Starters (Veg)", "Starters (Non-Veg)", "Beverages (Cold)"],
-        "dinner": ["Mains (Veg)", "Mains (Non-Veg)", "Starters (Veg)", "Starters (Non-Veg)"]
+        "breakfast": ["Beverages (Hot)", "Veg Starters"],
+        "lunch": ["Mains (Veg)", "Mains (Non-Veg)", "Breads & Rice"],
+        "evening": ["Veg Starters", "Non-Veg Starters", "Beverages (Cold)"],
+        "dinner": ["Mains (Veg)", "Mains (Non-Veg)", "Veg Starters", 
+                   "Non-Veg Starters", "Desserts"]
     }
     allowed_categories = cat_map.get(time_of_day, [])
     
     filtered = [i for i in MENU_CACHE if i.isAvailable and i.category in allowed_categories]
+    if not filtered:
+        filtered = [i for i in MENU_CACHE if i.isAvailable]
+        
     filtered.sort(key=lambda x: x.popularScore, reverse=True)
     return filtered[:5]
 

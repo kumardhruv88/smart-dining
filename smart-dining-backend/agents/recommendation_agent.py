@@ -2,34 +2,33 @@ import json
 import logging
 from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_groq import ChatGroq
-from config import GROQ_MODEL, GROQ_API_KEY
 from models.schemas import ChatResponse, Suggestion
+from config import GROQ_API_KEY, GROQ_MODEL
 from tools.menu_tools import search_menu
 
 logger = logging.getLogger(__name__)
 
-REC_SYSTEM_PROMPT = """You are Zara, a warm and witty dining assistant at Spice Garden restaurant.
+REC_SYSTEM_PROMPT = """You are Zara, a casual dining assistant at Spice Garden restaurant.
+STRICT RULES:
+- The output MUST be a valid JSON object. Do NOT wrap it in markdown block.
+- Schema: {"message": "...", "suggestions": [{"itemId": "uuid", "name": "Item Name", "price": 249, "reason": "short reason"}]}
+- message: MAX 2 short casual sentences. No paragraphs.
+- suggestions: exactly 2-3 items, ONLY from the menu list provided below.
+- NEVER suggest any item not present in the provided menu_items_json.
+- reason: max 5 words per item.
+- If user wrote in Hinglish, reply in Hinglish in the message field.
+- Never ask follow-up questions. Just suggest items directly.
+- Never mention cuisines or items not in our menu (no pizza, pasta, etc.)
 
-Your job: Write a natural, friendly conversational message (max 2 sentences) recommending items to the user.
-Mirror the user's language style (Hinglish in → Hinglish out, English in → English out).
+Available menu items (use ONLY these):
+{menu_items_json}
 
-CRITICAL RULES:
-1. Write ONLY your conversational message first (in the user's language).
-2. On a NEW LINE at the very end, append this EXACT JSON metadata block:
-   {"__json_meta": {"suggestions": [{"itemId": "id", "name": "name", "price": 299, "reason": "short reason"}]}}
-3. The JSON block MUST be valid and on its own line.
-4. ONLY suggest items from the "Available items" list. Copy id/name/price EXACTLY.
-5. Suggest exactly 3 items (or fewer if less available).
-6. Do NOT include any JSON in your conversational message — keep them completely separate.
-7. reason field: max 8 words explaining why you recommend it.
+Current cart: {cart_summary}
+Time of day: {time_of_day}
+User preferences: {preferences}
+{language_instruction}"""
 
-Context:
-- Time: {time_of_day}
-- User preferences remembered: {preferences}
-- Cart: {cart_summary}
-- Available items: {menu_items_json}"""
-
-async def run_recommendation(message: str, time_of_day: str, preferences: dict, cart_summary: list) -> ChatResponse:
+async def run_recommendation(message: str, time_of_day: str, preferences: dict, cart_summary: list, language_detected: str = "english", working_memory: list = None) -> ChatResponse:
     from tools.menu_tools import MENU_CACHE
     import re
     import random
@@ -118,6 +117,13 @@ async def run_recommendation(message: str, time_of_day: str, preferences: dict, 
         # 4. Semantic search
         query = message + " " + " ".join([str(k) for k, v in preferences.items() if v])
         items = search_menu(query, filters)
+        print(f"FAISS results for '{message}': {len(items)} items found")
+        print(f"Items: {[r.name for r in items]}")
+        
+        if not items:
+            from tools.menu_tools import get_popular_items
+            items = get_popular_items(time_of_day)
+            
         # Filter cart items and skipped categories
         available_items = [
             i for i in items
@@ -139,59 +145,62 @@ async def run_recommendation(message: str, time_of_day: str, preferences: dict, 
         "description": i.description, "category": i.category
     } for i in available_items])
 
-    prompt = REC_SYSTEM_PROMPT.format(
-        time_of_day=time_of_day,
-        preferences=json.dumps(preferences),
-        cart_summary=json.dumps(cart_summary),
-        menu_items_json=menu_items_json
-    )
+    if language_detected.lower() == "hinglish":
+        language_instruction = "Reply in Hinglish using Roman script ONLY (no Devanagari/Hindi fonts). Example: 'Yaar, yeh try karo - bilkul light aur tasty hai!'"
+    else:
+        language_instruction = "Reply in casual English. Max 2 sentences."
+        
+    prompt = REC_SYSTEM_PROMPT
+    prompt = prompt.replace("{time_of_day}", str(time_of_day))
+    prompt = prompt.replace("{preferences}", json.dumps(preferences))
+    prompt = prompt.replace("{cart_summary}", json.dumps(cart_summary))
+    prompt = prompt.replace("{menu_items_json}", str(menu_items_json))
+    prompt = prompt.replace("{language_instruction}", language_instruction)
 
-    llm = ChatGroq(model=GROQ_MODEL, api_key=GROQ_API_KEY, temperature=0.3, max_tokens=450)
+    llm = ChatGroq(
+        model=GROQ_MODEL, 
+        api_key=GROQ_API_KEY, 
+        temperature=0.7, 
+        max_tokens=300,
+        model_kwargs={"response_format": {"type": "json_object"}}
+    )
     messages = [
-        SystemMessage(content=prompt),
-        HumanMessage(content=message)
+        SystemMessage(content=prompt)
     ]
+    if working_memory:
+        for ex in working_memory[-3:]:
+            if ex['role'] == 'user':
+                messages.append(HumanMessage(content=ex['content']))
+            elif ex['role'] == 'assistant':
+                messages.append(SystemMessage(content=f"Zara: {ex['content']}"))
+    
+    messages.append(HumanMessage(content=message))
 
     # ─────────────────────────────────────────────────────────────────
     # 6. Parse response
     # ─────────────────────────────────────────────────────────────────
-    def parse_agent_response(raw: str) -> tuple[str, list]:
-        """Returns (conversational_message, suggestions_list)"""
-        suggestions = []
-        display_msg = raw.strip()
-
-        # Primary: look for __json_meta block
-        json_match = re.search(r'\{"__json_meta"[\s\S]*\}', raw)
-        if json_match:
-            try:
-                meta = json.loads(json_match.group(0))
-                suggestions = meta.get("__json_meta", {}).get("suggestions", [])
-                display_msg = raw.replace(json_match.group(0), "").strip()
-            except:
-                pass
-        else:
-            # Fallback: find any trailing JSON block
-            first_brace = raw.find('{')
-            last_brace = raw.rfind('}')
-            if first_brace != -1 and last_brace > first_brace:
-                text_before = raw[:first_brace].strip()
-                json_str = raw[first_brace:last_brace + 1]
+    def parse_recommendation_response(raw: str) -> dict:
+        import re, json
+        # Strip markdown code blocks if present
+        clean = re.sub(r'```json|```', '', raw).strip()
+        try:
+            return json.loads(clean)
+        except:
+            # Fallback: extract JSON object
+            match = re.search(r'\{.*\}', clean, re.DOTALL)
+            if match:
                 try:
-                    parsed = json.loads(json_str)
-                    if "suggestions" in parsed:
-                        suggestions = parsed["suggestions"]
-                    display_msg = text_before if text_before else parsed.get("message", raw[:200])
-                except:
-                    if text_before:
-                        display_msg = text_before
-
-        return display_msg, suggestions
+                    return json.loads(match.group())
+                except: pass
+            return {"message": clean, "suggestions": []}
 
     try:
         response = await llm.ainvoke(messages)
         content = str(response.content).strip()
 
-        display_msg, suggestions_raw = parse_agent_response(content)
+        parsed = parse_recommendation_response(content)
+        display_msg = parsed.get("message", "")
+        suggestions_raw = parsed.get("suggestions", [])
 
         # Inject imageUrl from MENU_CACHE
         for s in suggestions_raw:

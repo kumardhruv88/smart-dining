@@ -44,7 +44,16 @@ async def update_context(session_id: str, new_preferences: dict, detected_langua
         await SessionMemory.update(session_id, "language", detected_language)
 
     # Persist entities
+    import re
     if "group_size" in entities:
         await SessionMemory.update(session_id, "group_size", entities["group_size"])
+        
+    if "phone" in entities and entities["phone"]:
+        await SessionMemory.update(session_id, "customer_phone", entities["phone"])
+    else:
+        # Fallback regex search for 10-digit phone
+        digits_only = re.sub(r'[\s\+\-\(\)]', '', msg_lower)
+        if re.match(r'^\+?\d{10,13}$', digits_only):
+            await SessionMemory.update(session_id, "customer_phone", digits_only)
 
     logger.info(f"Context updated for session {session_id}")

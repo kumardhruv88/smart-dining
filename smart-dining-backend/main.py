@@ -43,8 +43,8 @@ app = FastAPI(title="Smart Dining AI Microservice", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for Vercel/HF cross-domain requests
-    allow_credentials=False,  # Must be False when allow_origins=["*"]
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -216,7 +216,7 @@ async def stream_chat(
                     zara_msg = add_item_result["message"] + "\n\nWould you like me to place the order now?"
                 yield f"data: {json.dumps(zara_msg)}\n\n"
             else:
-                llm = ChatGroq(model=GROQ_MODEL, api_key=GROQ_API_KEY, temperature=0.5, max_tokens=100, streaming=True)
+                llm = ChatGroq(model=GROQ_MODEL, api_key=GROQ_API_KEY, temperature=0.7, max_tokens=150, streaming=True)
                 messages = [SystemMessage(content=system_prompt), HumanMessage(content=user_msg)]
                 try:
                     async for chunk in llm.astream(messages):
@@ -225,6 +225,8 @@ async def stream_chat(
                             yield f"data: {json.dumps(token)}\n\n"
                 except Exception as e:
                     logger.error(f"Stream error in ADD_ITEM: {e}")
+                    error_msg = "I'm experiencing high traffic right now. Please try again in a moment."
+                    yield f"data: {json.dumps(error_msg)}\n\n"
                     
             if suggestions:
                 meta = {"__json_meta": {"suggestions": suggestions}}
@@ -257,25 +259,32 @@ async def stream_chat(
     elif nlu_result.intent == "CHECKOUT":
         from agents.order_validation_agent import run_order_validation
         from agents.orchestrator import get_zara_prompt
-        val_res = await run_order_validation(cart_list)
+        val_res = await run_order_validation(cart_list, sessionId)
+        
+        cart_summary_text = "\n".join([
+            f"• {item.get('name')} x{item.get('quantity') or item.get('qty', 1)} — ₹{item.get('price', 0)}" + (" (added from menu)" if item.get('addedBy') and item.get('addedBy') != "Zara" else "")
+            for item in cart_list
+        ])
+        total_price = sum((float(item.get('price', 0)) * (item.get('quantity') or item.get('qty', 1))) for item in cart_list)
+        cart_summary_text += f"\nTotal: ₹{total_price}"
         
         system_prompt, user_msg = get_zara_prompt(
             intent="CHECKOUT",
             user_message=message,
             language=nlu_result.language_detected,
-            context_data={"valid": val_res.get("valid"), "issues": val_res.get("issues", [])}
+            context_data={"valid": val_res.get("valid"), "issues": val_res.get("issues", []), "cart_summary": cart_summary_text}
         )
         
         async def event_generator():
             if not system_prompt:
                 if val_res.get("valid"):
-                    zara_msg = "Your order looks perfect! To place the order, please provide your 10-digit mobile number."
+                    zara_msg = f"Before we confirm — here's what's in your order:\n{cart_summary_text}\n\nTo place the order, please provide your 10-digit mobile number."
                 else:
                     issues = "\n".join(val_res.get("issues", []))
                     zara_msg = f"There are a few issues with your cart:\n{issues}"
                 yield f"data: {json.dumps(zara_msg)}\n\n"
             else:
-                llm = ChatGroq(model=GROQ_MODEL, api_key=GROQ_API_KEY, temperature=0.5, max_tokens=100, streaming=True)
+                llm = ChatGroq(model=GROQ_MODEL, api_key=GROQ_API_KEY, temperature=0.7, max_tokens=150, streaming=True)
                 messages = [SystemMessage(content=system_prompt), HumanMessage(content=user_msg)]
                 try:
                     async for chunk in llm.astream(messages):
@@ -284,6 +293,8 @@ async def stream_chat(
                             yield f"data: {json.dumps(token)}\n\n"
                 except Exception as e:
                     logger.error(f"Stream error in CHECKOUT: {e}")
+                    error_msg = "I'm experiencing high traffic right now. Please try again in a moment."
+                    yield f"data: {json.dumps(error_msg)}\n\n"
             yield "data: [DONE]\n\n"
             
         return StreamingResponse(
@@ -320,7 +331,7 @@ async def stream_chat(
             if not system_prompt:
                 yield f"data: {json.dumps(fallback_msg)}\n\n"
             else:
-                llm = ChatGroq(model=GROQ_MODEL, api_key=GROQ_API_KEY, temperature=0.5, max_tokens=100, streaming=True)
+                llm = ChatGroq(model=GROQ_MODEL, api_key=GROQ_API_KEY, temperature=0.7, max_tokens=150, streaming=True)
                 messages = [SystemMessage(content=system_prompt), HumanMessage(content=user_msg)]
                 try:
                     async for chunk in llm.astream(messages):
@@ -451,7 +462,8 @@ async def stream_chat(
             message=message,
             time_of_day=timeOfDay,
             preferences=prefs_dict,  # Already merged with session prefs above
-            cart_summary=cart_list
+            cart_summary=cart_list,
+            language_detected=nlu_result.language_detected
         )
         
         response_obj = {
@@ -488,7 +500,7 @@ async def stream_chat(
     else: # FALLBACK
         fallback_prompt = "You are a dining assistant. A user said something off-script or general. Give a polite, helpful response keeping it dining-related."
         
-        llm = ChatGroq(model=GROQ_MODEL, api_key=GROQ_API_KEY, temperature=0.5, max_tokens=200, streaming=True)
+        llm = ChatGroq(model=GROQ_MODEL, api_key=GROQ_API_KEY, temperature=0.7, max_tokens=150, streaming=True)
         messages = [
             SystemMessage(content=fallback_prompt),
             HumanMessage(content=message)
@@ -504,7 +516,8 @@ async def stream_chat(
                 yield "data: [DONE]\n\n"
             except Exception as e:
                 logger.error(f"Stream error: {e}")
-                yield f"data: {json.dumps(str(e))}\n\n"
+                error_msg = "I'm experiencing high traffic right now. Please try again in a moment."
+                yield f"data: {json.dumps(error_msg)}\n\n"
 
         return StreamingResponse(
             event_generator(),
@@ -518,7 +531,17 @@ class ValidateOrderReq(BaseModel):
 
 @app.post("/validate-order")
 async def validate_order(req: ValidateOrderReq):
-    return await run_order_validation(req.cartItems)
+    return await run_order_validation(req.cartItems, req.sessionId)
+
+class SetOrderFlowReq(BaseModel):
+    sessionId: str
+    flow: str
+
+@app.post("/set-order-flow")
+async def set_order_flow(req: SetOrderFlowReq):
+    from memory.session_memory import SessionMemory
+    await SessionMemory.update(req.sessionId, "order_flow", req.flow)
+    return {"status": "ok"}
 
 class UpsellCheckReq(BaseModel):
     sessionId: str

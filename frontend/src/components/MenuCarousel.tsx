@@ -178,19 +178,14 @@ export function MenuCarousel({
             >
               About
             </button>
-            {/* Tracking Pill next to About */}
+            {/* Tracking Link next to About */}
             {activeOrders.length > 0 && (
               <button
                 onClick={() => window.location.href = `/table/${tableId}/confirmation?orderId=${activeOrders[activeOrders.length - 1]}`}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-full transition-transform hover:scale-105"
+                className="flex items-center gap-1.5 text-sm font-medium tracking-wide transition-opacity hover:opacity-60"
                 style={{
-                  background: '#2D1810',
-                  color: '#FAF7F2',
-                  border: '1px solid #E8650A',
-                  fontSize: '12px',
-                  fontWeight: '600',
+                  color: '#2D1810',
                   fontFamily: 'var(--font-sans)',
-                  boxShadow: '0 2px 8px rgba(232, 101, 10, 0.2)'
                 }}
               >
                 <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: '#E8650A', animation: 'pulse 1.5s infinite' }}></span>

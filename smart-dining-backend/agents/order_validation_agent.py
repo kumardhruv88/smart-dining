@@ -11,22 +11,37 @@ VALIDATOR_SYSTEM_PROMPT = """You are an order validator. Check this order for is
 Verify: all items available, quantities reasonable (< 20 per item), no empty cart.
 Return JSON: {"valid": bool, "issues": [], "message": str}"""
 
-async def run_order_validation(cart_items: list) -> dict:
+async def run_order_validation(cart_items: list, session_id: str = None) -> dict:
     issues = []
+    
+    if session_id:
+        from tools.cart_tools import get_cart
+        fetched_cart = await get_cart(session_id)
+        if fetched_cart:
+            cart_items = fetched_cart
+
     if not cart_items:
         issues.append("Cart is empty.")
     
     for item in cart_items:
         qty = item.get("quantity") or item.get("qty", 0)
-        item_id = item.get("menuItemId") or item.get("itemId")
+        
+        # Handle Next.js nested menuItem format OR direct flat format
+        if "menuItem" in item and isinstance(item["menuItem"], dict):
+            item_id = item["menuItem"].get("id")
+            name = item["menuItem"].get("name", "Unknown item")
+        else:
+            item_id = item.get("menuItemId") or item.get("itemId")
+            name = item.get("name", "Unknown item")
+
         if qty > 20:
-            issues.append(f"Quantity for {item.get('name')} is too high ({qty}).")
+            issues.append(f"Quantity for {name} is too high ({qty}).")
             
         is_avail = await validate_stock(item_id)
         if not is_avail:
-            issues.append(f"{item.get('name')} is currently unavailable.")
+            issues.append(f"'{name}' is currently unavailable.")
             
-    llm = ChatGroq(model=GROQ_MODEL, api_key=GROQ_API_KEY, temperature=0.1, max_tokens=200)
+    llm = ChatGroq(model=GROQ_MODEL, api_key=GROQ_API_KEY, temperature=0.2, max_tokens=200)
     messages = [
         SystemMessage(content=VALIDATOR_SYSTEM_PROMPT),
         HumanMessage(content=f"Current Cart:\n{json.dumps(cart_items)}\nSystem detected issues:\n{json.dumps(issues)}")
