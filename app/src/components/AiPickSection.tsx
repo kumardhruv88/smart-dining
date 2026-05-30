@@ -36,8 +36,7 @@ function getSmartImage(imageUrl?: string, name?: string): string {
   if (txt.includes('naan') || txt.includes('roti') || txt.includes('paratha')) return 'https://images.unsplash.com/photo-1610975989137-6e5d8f17e6a2?auto=format&fit=crop&w=400&q=80'
   if (txt.includes('rice') || txt.includes('chawal')) return 'https://images.unsplash.com/photo-1633945274405-b6c8069047b0?auto=format&fit=crop&w=400&q=80'
   if (txt.includes('samosa') || txt.includes('pakora') || txt.includes('chaat')) return 'https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=400&q=80'
-  if (txt.includes('gulab') || txt.includes('jamun')) return 'https://images.unsplash.com/photo-1666789826285-7cab1e40ffbb?auto=format&fit=crop&w=400&q=80'
-  if (txt.includes('kulfi') || txt.includes('kheer') || txt.includes('halwa')) return 'https://images.unsplash.com/photo-1551024601-bec78aea704b?auto=format&fit=crop&w=400&q=80'
+  if (txt.includes('gulab') || txt.includes('jamun') || txt.includes('kulfi') || txt.includes('kheer') || txt.includes('halwa')) return 'https://images.unsplash.com/photo-1551024601-bec78aea704b?auto=format&fit=crop&w=400&q=80'
   if (txt.includes('cake') || txt.includes('brownie') || txt.includes('ice cream')) return 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=400&q=80'
   if (txt.includes('lassi') || txt.includes('chaas')) return 'https://images.unsplash.com/photo-1622597467836-f3e6dc5a7edd?auto=format&fit=crop&w=400&q=80'
   if (txt.includes('tea') || txt.includes('chai') || txt.includes('coffee')) return 'https://images.unsplash.com/photo-1544145945-f90425340c7e?auto=format&fit=crop&w=400&q=80'
@@ -65,39 +64,46 @@ export function AiPickSection({ sessionId, timeOfDay, onAdd, tableId: propTableI
     const reason = timeReasonMap[timeOfDay] || 'Chef\'s recommendation!'
 
     // Category/tag preferences by time of day
-    const timePrefs: Record<string, { categories: string[], tags: string[] }> = {
+    const timePrefs: Record<string, { categories: string[], tags: string[], excludeCategories: string[] }> = {
       breakfast: {
-        categories: ['Beverages Hot', 'Veg Starters', 'Breads & Rice'],
-        tags: ['breakfast', 'veg', 'light'],
+        categories: ['Beverages Hot', 'Breads & Rice', 'Veg Starters'],
+        tags: ['breakfast', 'light', 'morning'],
+        excludeCategories: ['Desserts', 'Mains Non-Veg', 'Mains Veg'],
       },
       lunch: {
-        categories: ['Mains Veg', 'Mains Non-Veg', 'Breads & Rice', 'Combos & Deals'],
+        categories: ['Mains Veg', 'Mains Non-Veg', 'Combos & Deals'],
         tags: ['bestseller', 'lunch', 'filling'],
+        excludeCategories: [],
       },
       evening: {
         categories: ['Veg Starters', 'Non-Veg Starters', 'Beverages Cold', 'Beverages Hot'],
-        tags: ['light', 'snack', 'evening'],
+        tags: ['snack', 'evening', 'light'],
+        excludeCategories: ['Mains Veg', 'Mains Non-Veg'],
       },
       dinner: {
-        categories: ['Mains Non-Veg', 'Mains Veg', 'Combos & Deals', 'Non-Veg Starters'],
-        tags: ['bestseller', 'dinner', 'special'],
+        categories: ['Mains Non-Veg', 'Mains Veg', 'Combos & Deals', 'Desserts'],
+        tags: ['dinner', 'special', 'bestseller'],
+        excludeCategories: [],
       },
     }
 
-    const prefs = timePrefs[timeOfDay] || timePrefs['lunch'] || { categories: [], tags: [] }
+    const prefs = timePrefs[timeOfDay] || timePrefs['lunch'] || { categories: [], tags: [], excludeCategories: [] }
+    const excludeSet = new Set((prefs.excludeCategories || []).map(c => c.toLowerCase()))
 
     // Try to filter by category first
-    let filtered = allItems.filter((item: any) =>
-      prefs.categories.some(cat =>
+    let filtered = allItems.filter((item: any) => {
+      if (excludeSet.has((item.category || '').toLowerCase())) return false;
+      return prefs.categories.some(cat =>
         item.category?.toLowerCase().includes(cat.toLowerCase())
       )
-    )
+    })
 
     // If not enough, also try by tags
     if (filtered.length < 3) {
-      const tagFiltered = allItems.filter((item: any) =>
-        prefs.tags.some(tag => item.tags?.includes(tag))
-      )
+      const tagFiltered = allItems.filter((item: any) => {
+        if (excludeSet.has((item.category || '').toLowerCase())) return false;
+        return prefs.tags.some(tag => item.tags?.includes(tag))
+      })
       // Merge, dedup
       const ids = new Set(filtered.map((i: any) => i.id))
       tagFiltered.forEach((i: any) => { if (!ids.has(i.id)) filtered.push(i) })

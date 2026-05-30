@@ -481,7 +481,7 @@ export function MainMenu() {
 
       {/* ── Filter slide-out panel ───────────────────────────────── */}
       {filterPanelOpen && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 120, display: 'flex', justifyContent: 'flex-end' }}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 120, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '16px' }}>
           {/* Backdrop */}
           <div
             style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(3px)' }}
@@ -492,10 +492,11 @@ export function MainMenu() {
             className="animate-in slide-in-from-right duration-300"
             style={{
               position: 'relative', width: '100%', maxWidth: '300px',
-              height: 'auto', maxHeight: '90vh',
+              height: 'auto', maxHeight: '80vh',
               background: '#FAF7F2', overflowY: 'auto',
               display: 'flex', flexDirection: 'column',
-              borderRadius: '16px 0 0 16px',
+              borderRadius: '16px',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.2)'
             }}
           >
             <div style={{

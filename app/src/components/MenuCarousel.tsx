@@ -8,7 +8,7 @@ const HERO_CONTENT = [
   { name: 'PANEER TIKKA', image: 'https://images.unsplash.com/photo-1567188040759-fb8a883dc6d8?auto=format&fit=crop&w=1600&q=80' },
   { name: 'CHICKEN BIRYANI', image: 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&w=1600&q=80' },
   { name: 'MASALA DOSA', image: 'https://images.unsplash.com/photo-1630383249896-424e482df921?auto=format&fit=crop&w=1600&q=80' },
-  { name: 'GULAB JAMUN', image: 'https://images.unsplash.com/photo-1666789826285-7cab1e40ffbb?auto=format&fit=crop&w=1600&q=80' },
+  { name: 'GULAB JAMUN', image: 'https://images.unsplash.com/photo-1551024601-bec78aea704b?auto=format&fit=crop&w=1600&q=80' },
   { name: 'IDLI SAMBAR', image: 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=1600&q=80' },
   { name: 'MASALA CHAI', image: 'https://images.unsplash.com/photo-1561336313-0bd5e0b27ec8?auto=format&fit=crop&w=1600&q=80' },
 ]

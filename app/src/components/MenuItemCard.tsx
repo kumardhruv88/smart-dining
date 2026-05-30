@@ -37,8 +37,8 @@ export function MenuItemCard({
     if (txt.includes('dosa') || txt.includes('uttapam')) return 'https://images.unsplash.com/photo-1630383249896-424e482df921?auto=format&fit=crop&w=600&q=80'
     if (txt.includes('sambar')) return 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=600&q=80'
     if (txt.includes('vada') || txt.includes('medu')) return 'https://images.unsplash.com/photo-1567188040759-fb8a883dc6d6?auto=format&fit=crop&w=600&q=80'
-    if (txt.includes('gulab') || txt.includes('jamun')) return 'https://images.unsplash.com/photo-1666789826285-7cab1e40ffbb?auto=format&fit=crop&w=600&q=80'
-    if (txt.includes('halwa') || txt.includes('kheer') || txt.includes('kulfi')) return 'https://images.unsplash.com/photo-1551024601-bec78aea704b?auto=format&fit=crop&w=600&q=80'
+    // Gulab Jamun broken URL replaced with working Indian sweets image
+    if (txt.includes('gulab') || txt.includes('jamun') || txt.includes('halwa') || txt.includes('kheer') || txt.includes('kulfi')) return 'https://images.unsplash.com/photo-1551024601-bec78aea704b?auto=format&fit=crop&w=600&q=80'
     if (txt.includes('biryani') || txt.includes('pulao')) return 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&w=600&q=80'
     if (txt.includes('paneer') || txt.includes('makhani')) return 'https://images.unsplash.com/photo-1567188040759-fb8a883dc6d6?auto=format&fit=crop&w=600&q=80'
     if (txt.includes('chicken') || txt.includes('tikka')) return 'https://images.unsplash.com/photo-1599487405270-81781229f338?auto=format&fit=crop&w=600&q=80'
