@@ -29,7 +29,17 @@ export default function ConfirmationPage() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search)
-      setOrderId(urlParams.get('orderId'))
+      const oid = urlParams.get('orderId')
+      setOrderId(oid)
+      
+      if (oid) {
+        // Save to active orders
+        const activeOrders = JSON.parse(localStorage.getItem('activeOrders') || '[]')
+        if (!activeOrders.includes(oid)) {
+          activeOrders.push(oid)
+          localStorage.setItem('activeOrders', JSON.stringify(activeOrders))
+        }
+      }
     }
   }, [])
 
@@ -46,6 +56,12 @@ export default function ConfirmationPage() {
           setOrderTotal(Number(data.order.totalAmount || 0))
           setOrderTax(Number(data.order.taxAmount || 0))
           setStatus(data.order.status.toLowerCase())
+          
+          if (data.order.status === 'DELIVERED') {
+            const activeOrders = JSON.parse(localStorage.getItem('activeOrders') || '[]')
+            const filtered = activeOrders.filter((id: string) => id !== orderId)
+            localStorage.setItem('activeOrders', JSON.stringify(filtered))
+          }
         }
       } catch (e) {
         console.error("Failed to fetch order:", e)
@@ -64,6 +80,11 @@ export default function ConfirmationPage() {
     socket.on('order:status_updated', (data: { orderId: string, status: string }) => {
       if (data.orderId === orderId) {
         setStatus(data.status.toLowerCase())
+        if (data.status === 'DELIVERED') {
+          const activeOrders = JSON.parse(localStorage.getItem('activeOrders') || '[]')
+          const filtered = activeOrders.filter((id: string) => id !== orderId)
+          localStorage.setItem('activeOrders', JSON.stringify(filtered))
+        }
       }
     })
 

@@ -43,6 +43,7 @@ export function MainMenu() {
   const [filterPanelOpen, setFilterPanelOpen] = useState(false)
   const [activeDietary, setActiveDietary] = useState<string[]>([])
   const [excludeAllergens, setExcludeAllergens] = useState<string[]>([])
+  const [activeOrders, setActiveOrders] = useState<string[]>([])
 
   const menuSectionRef = useRef<HTMLDivElement>(null)
   const aboutSectionRef = useRef<HTMLDivElement>(null)
@@ -66,9 +67,10 @@ export function MainMenu() {
   }, [])
 
   useEffect(() => {
-    fetch('/api/menu')
-      .then(res => res.json())
-      .then(data => {
+    const loadData = async () => {
+      try {
+        const res = await fetch('/api/menu')
+        const data = await res.json()
         const items = Array.isArray(data) ? data : 
                       Array.isArray(data?.items) ? data.items : []
         setAllItems(items.map((d: any) => ({
@@ -82,12 +84,19 @@ export function MainMenu() {
           imageUrl: d.imageUrl,
           isAvailable: d.available,
         })))
+      } catch (err) {
+        console.error('Failed to load menu data:', err)
+      } finally {
         setMenuLoading(false)
-      })
-      .catch(e => {
-        console.error('Failed to load menu', e)
-        setMenuLoading(false)
-      })
+      }
+    }
+    loadData()
+    
+    // Load active orders
+    if (typeof window !== 'undefined') {
+      const orders = JSON.parse(localStorage.getItem('activeOrders') || '[]')
+      setActiveOrders(orders)
+    }
   }, [])
 
   const handleAddItem = async (item: any) => {
@@ -232,6 +241,48 @@ export function MainMenu() {
         onScrollToMenu={scrollToMenu}
         onScrollToAbout={scrollToAbout}
       />
+
+      {/* ── Active Orders Tracking Banner ────────────────────────────── */}
+      {activeOrders.length > 0 && (
+        <div style={{
+          padding: '16px 24px',
+          background: '#FAF7F2',
+          display: 'flex',
+          justifyContent: 'center',
+          borderBottom: '1px solid #E8DCC8',
+        }}>
+          <button
+            onClick={() => window.location.href = `/table/${tableId}/confirmation?orderId=${activeOrders[activeOrders.length - 1]}`}
+            style={{
+              padding: '12px 24px',
+              borderRadius: '9999px',
+              background: '#2D1810',
+              color: '#FAF7F2',
+              border: 'none',
+              fontWeight: '600',
+              fontSize: '14px',
+              fontFamily: 'var(--font-sans)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(45, 24, 16, 0.15)',
+              transition: 'transform 0.2s, background 0.2s'
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLButtonElement).style.background = '#1A0E08';
+              (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)';
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLButtonElement).style.background = '#2D1810';
+              (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)';
+            }}
+          >
+            <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: '#E8650A', animation: 'pulse 1.5s infinite' }}></span>
+            Track Active Order
+          </button>
+        </div>
+      )}
 
       {/* ── "Browse Full Menu" CTA ────────────────────────────────── */}
       <div
